@@ -123,3 +123,7 @@
 .gf-script-status{padding:4px 8px;border-radius:8px;border:1px solid #82c49c;background:#e7ffef;color:#246944;font-size:11px;line-height:1.35;font-weight:800;overflow-wrap:anywhere;max-height:47px;overflow:auto}
 .gf-script-status.failed{border-color:#e99985;background:#fff0ec;color:#a43e30}
 @media(max-width:729px){.gf-script-status{font-size:9px;padding:3px 7px;max-height:31px}}
+
+/* Allow an unlimited hand without pushing the controls or scoreboard off-screen. */
+.gf-compact-field .gf-icon-grid{min-height:0;max-height:45dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:2px;flex:0 1 auto}
+@media(max-width:729px){.gf-compact-field .gf-icon-grid{max-height:none;flex:1 1 auto;align-content:start;overflow-y:auto;min-height:40px}}
