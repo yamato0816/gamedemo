@@ -41,7 +41,7 @@ battle=function(){
  const to=incoming?state.players.find(p=>p.id===incoming.to):state.players.find(p=>p.id===target);
  const cards=incoming?.cards||((active&&held.length)?held:[]);
  const info=gfCurrentEvent();
- const cmds=def?`<button class="gf-primary" data-action="defend">🛡 防御する ${held.length?'('+held.length+'枚)':''}</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
+ const cmds=def?`<button class="gf-primary" data-action="defend">🛡 防御する ${held.length?'('+held.length+'枚)':''}</button><button class="gf-secondary" data-gf-action="all-guards">まとめて選ぶ</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
  const played=c=>c?`<span class="gf-play-small">${e(c.emoji||'🃏')}<small>${e(c.name)}</small></span>`:'<span class="gf-play-small quiet">？<small>待機</small></span>';
  return `<div class="gf-game gf-compact"><header class="gf-game-header"><span>✦ CHAOS RELIC</span><strong>第${state.round}R</strong><span id="clock" class="gf-timer">--秒</span><button data-gf-action="dictionary" title="辞書">📖</button></header>
  <div class="gf-field gf-compact-field"><div class="gf-announcement ${e(info.kind||'neutral')}"><span>${e(info.icon||'✦')}</span><div><b>${e(info.title||'対戦中')}</b><small>${e(info.detail||'次の行動を待っています')}</small></div></div>
@@ -96,6 +96,20 @@ document.addEventListener('click',event=>{
  event.preventDefault();event.stopImmediatePropagation();
  if(btn.dataset.gfAction==='dictionary'){modal='dictionary';renderModal();}
  if(btn.dataset.gfAction==='close-dictionary'){modal='';renderModal();}
+ if(btn.dataset.gfAction==='all-guards'){
+   if(!amDefending())return;
+   const player=me();let mp=0,gold=0;
+   const cards=state.hand.filter(c=>c.type==='defense');
+   chosen.clear();
+   for(const c of cards){
+     const price=Number(c.cost)||0;
+     if(c.resource==='gold'){if(gold+price>player.gold)continue;gold+=price;}
+     else{if(mp+price>player.mp)continue;mp+=price;}
+     chosen.add(c.uid);
+   }
+   if(!chosen.size)toast('使える防御札がありません',true);
+   render();return;
+ }
  if(btn.dataset.gfAction==='card'){if(gfWasHold){gfWasHold=false;return;}const c=state?.hand?.find(c=>c.uid===btn.dataset.id);if(!c)return;const allowed=(amDefending()&&c.type==='defense')||(amTurn()&&c.type!=='defense');if(allowed)selectCard(c.uid);else gfCardInfo(c.uid);}
  if(btn.dataset.gfAction==='close-info')document.getElementById('gf-inspect')?.remove();
  if(btn.dataset.gfAction==='history')gfHistory();
