@@ -1,9 +1,9 @@
 /* 依存なしのPython構文サブセット。Python本体やevalを使わない安全な構文木インタプリタ */
 (function(root){
 'use strict';
-const EVENTS=['play','hit','defend','block','turn_start'];
-const EFFECTS=['damage','heal','status','shield','resource','draw','cleanse','summon','phenomenon','steal'];
-const READS=['damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','round_number','has_status','randint','chance','min','max','abs','int','round'];
+const EVENTS=['play','hit','defend','block','turn_start','guard'];
+const EFFECTS=['damage','heal','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense'];
+const READS=['damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
 const WHOS=['self','target','everyone','all_enemies','random_enemy'];
 const ST=['poison','burn','freeze','curse','weak'];
 const GD=['phoenix','turtle','sprite','storm','muse'];
@@ -127,6 +127,9 @@ function run(program,event,ctx,actions){
       case 'target_mp':return ctx.target?.mp||0;
       case 'my_gold':return ctx.self.gold;
       case 'target_gold':return ctx.target?.gold||0;
+      case 'my_defense_cards':return ctx.self.hand.filter(c=>c.type==='defense').length;
+      case 'target_defense_cards':return ctx.target?.hand?.filter(c=>c.type==='defense').length||0;
+      case 'incoming_damage':return ctx.incomingDamage||ctx.r.pending?.damage||0;
       case 'round_number':return ctx.r.round;
       case 'has_status':return !!(from(check(arg(0,'self'),['self','target'],'対象'))?.status?.[check(arg(1,''),ST,'状態異常')]);
       case 'randint':{let a=cap(arg(0,0),-30,30),b=cap(arg(1,10),-30,30);if(a>b)[a,b]=[b,a];return a+Math.floor(Math.random()*(b-a+1));}
@@ -143,6 +146,7 @@ function run(program,event,ctx,actions){
     else if(f==='summon')actions.summon(who(arg(0,'self')),check(arg(1,'sprite'),GD,'守護神'),cap(arg(2,3),1,5));
     else if(f==='phenomenon')actions.phenomenon(check(arg(0,'random'),PH,'超常現象'));
     else if(f==='steal')actions.steal(check(arg(0,'gold'),['mp','gold'],'資源'),cap(arg(1,1),0,Number.MAX_SAFE_INTEGER));
+    else if(f==='boost_attack'||f==='boost_defense')actions[f](cap(arg(0,0),0,Number.MAX_SAFE_INTEGER));
     return 0;
   }
   function evaluate(node){tick();if(!node||typeof node!=='object')fail('不正な式');
