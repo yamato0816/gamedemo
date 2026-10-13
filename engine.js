@@ -192,7 +192,7 @@ function crPhenomenon(r,key){
 function crRules(r,card,event,ctx){
   if(!card.script)return;
   try{
-  const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0}, {
+  const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0,incomingDamage:ctx.incomingDamage||0,ownDefenseCount:ctx.ownDefenseCount}, {
     damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHit(r,p,n,'自作カードで')),
     heal:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHeal(r,p,n,'自作カードで')),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
