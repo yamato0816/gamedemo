@@ -138,3 +138,11 @@
 @keyframes gf-telemetry-in{from{opacity:0;transform:translate(-50%,-16px) scale(.93)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
 @media(max-width:729px){.gf-impact-feed{top:86px;width:94%;gap:3px}.gf-impact-row{padding:5px 8px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.gf-impact-feed,.gf-small-score.gf-stat-pulse{animation:none}}
+
+/* Keep extensive code-defined card descriptions readable on small phones. */
+.gf-inspect-body{max-height:89dvh;overflow-y:auto;overscroll-behavior:contain}
+.gf-inspect-body p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+.forge-help-open{padding:12px 14px;border:1px solid #c9d8cb;border-radius:12px;background:#f4fff6;color:#41624e;font-size:12px;line-height:1.6;margin:8px 0}
+.forge-help-open b{display:block;font-size:14px;margin-bottom:5px}
+.forge-help-open p{margin:5px 0;overflow-wrap:anywhere}
+.forge-help-open a{color:#246c79;text-decoration:underline}
