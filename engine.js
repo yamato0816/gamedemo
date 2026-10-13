@@ -110,7 +110,7 @@ function crDraw(r,p,n){
   for(let i=0;i<count;i++)p.hand.push(crPick(r));
 }
 function crHeal(r,p,n,why){
-  const v=Math.min(CR_MAX-p.hp,crSafeDamage(n));
+  const v=Math.max(0,Math.min(CR_MAX-p.hp,crSafeDamage(n)));
   p.hp=crAdd(p.hp,v);
   if(v)crLog(r,`💚 ${p.name} ${why||'回復'} +${v}HP`);
   return v;
@@ -242,7 +242,7 @@ function crStartTurn(r){
   if(crWinner(r))return;
   if(!crLive(p)){crNext(r);return;}
   if(p.status.freeze){p.status.freeze--;crLog(r,`🧊 ${p.name} は凍結で行動不能！`);crNext(r);return;}
-  p.shopUsed=false;p.mp=Math.min(99,p.mp+3);crLog(r,'💠 '+p.name+' MPが3回復！');
+  p.shopUsed=false;p.mp=crAdd(p.mp,3);crLog(r,'💠 '+p.name+' MPが3回復！');
   crDraw(r,p,Math.max(0,9-p.hand.length));crLog(r,`🎯 ${p.name} のターン`);
   r.deadline=Date.now()+60000;
 }
@@ -316,7 +316,7 @@ function crDefend(r,p,ids){
   crLog(r,`🛡️ ${p.name}: 防御 ${power} / 攻撃 ${pending.damage} / 貫通 ${pending.pierce}`);
   for(const c of cards){
     crRules(r,c,'defend',{self:p,target:from,damageTaken:dealt});
-    if(c.effect==='mana')p.mp=Math.min(99,p.mp+3);
+    if(c.effect==='mana')p.mp=crAdd(p.mp,3);
     if(pending.damage<=block&&!special){
       if(c.effect==='reflect'){crLog(r,`↩️ ${p.name} は跳ね返した！`);crHit(r,from,incoming,'反射で');}
       if(c.effect==='counter'){crLog(r,`⚔️ ${p.name} は反撃した！`);crHit(r,from,2,'反撃で');}
@@ -326,7 +326,7 @@ function crDefend(r,p,ids){
   if(dealt===0)crLog(r,`🟢 ${p.name} は無事！`);
   if(dealt>0){
     for(const e of pending.effects){
-      if(['poison','burn','freeze'].includes(e))crStatus(r,p,e,e==='freeze'?1:3);
+      if(['poison','burn','freeze'].includes(e)&&crLive(p))crStatus(r,p,e,e==='freeze'?1:3);
       if(e==='drain')crHeal(r,from,Math.max(1,Math.floor(dealt/2)),'吸収で');
       if(e==='splash')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(2,Math.ceil(dealt/3)),'巻き添えで'));
       if(e==='chain')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(1,Math.floor(dealt/2)),'連鎖で'));
@@ -438,7 +438,7 @@ function crShop(r,p,item,targetId){
   else if(item==='shield')p.shield=crAdd(p.shield,12);
   else if(item==='draw')crDraw(r,p,3);
   else if(item==='cleanse')p.status={poison:0,burn:0,freeze:0,curse:0,weak:0};
-  else if(item==='sabotage'){const n=Math.min(8,other.mp);other.mp-=n;p.mp=Math.min(99,p.mp+n);crLog(r,'🕵️ '+p.name+' は '+other.name+' からMP'+n+'奪った');}
+  else if(item==='sabotage'){const n=Math.min(8,other.mp);other.mp-=n;p.mp=crAdd(p.mp,n);crLog(r,'🕵️ '+p.name+' は '+other.name+' からMP'+n+'奪った');}
   crLog(r,'🪙 '+p.name+' は ¥'+offer.cost+' で「'+offer.name+'」を購入');
   crVisual(r,'shop','購入！',p.name+'｜'+offer.name+' ¥'+offer.cost,offer.icon,item);
 }
