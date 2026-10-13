@@ -9,6 +9,7 @@ const errorText=e=>e?.code==='PERMISSION_DENIED'?'Firebaseのアクセス権限�
 function validConfig(){
  let config;
  try{config=JSON.parse(localStorage.getItem('cr_firebase_config')||'null');}catch{}
+ if(!config&&root.CHAOS_FIREBASE_CONFIG)config=root.CHAOS_FIREBASE_CONFIG;
  if(!config||!config.apiKey||!config.databaseURL||!config.projectId||!config.appId)
   throw Error('📡 通信 → Firebase設定にWebアプリの構成情報を登録してください');
  if(!/^https:\/\/[a-z0-9.-]+\.(?:firebaseio\.com|firebasedatabase\.app)\/?$/i.test(config.databaseURL))
