@@ -292,8 +292,31 @@ function crAttack(r,from,to,cards){
   else if(!crLive(to)){r.pending=null;crNext(r);}
   else r.deadline=Date.now()+30000;
 }
+// Retaliation is a fresh attack window. The victim may defend again.
+const CR_REACTION_DEPTH=6,CR_REACTION_QUEUE=48;
+function crQueueReaction(r,from,to,damage,name,emoji,depth){
+  if(!to||!crLive(to)||depth>CR_REACTION_DEPTH)return;
+  r.reactionQueue=r.reactionQueue||[];
+  if(r.reactionQueue.length>=CR_REACTION_QUEUE){crLog(r,'⚠ 反撃の連鎖が多すぎるため、それ以上の反撃を停止');return;}
+  r.reactionQueue.push({from:from.id,to:to.id,damage:crSafeDamage(damage),name,emoji,depth});
+}
+function crContinueReaction(r){
+  const queue=r.reactionQueue||[];
+  while(queue.length){
+    const x=queue.shift(),to=r.players.find(p=>p.id===x.to),from=r.players.find(p=>p.id===x.from);
+    if(!to||!crLive(to)||!from)continue;
+    r.pending={from:from.id,to:to.id,damage:x.damage,element:'none',pierce:0,effects:[],kind:'reaction',reactionDepth:x.depth,
+      cards:[{name:x.name,emoji:x.emoji,type:'attack',power:x.damage,effect:'normal'}]};
+    r.deadline=Date.now()+30000;
+    crLog(r,'🔁 '+from.name+' → '+to.name+'｜'+x.name+' 威力'+x.damage+'！ 再び防御可能');
+    crVisual(r,'attack','反撃が来た！',from.name+' → '+to.name+' / '+x.name+' / 威力'+x.damage,x.emoji||'⚡');
+    return true;
+  }
+  return false;
+}
 function crDefend(r,p,ids){
   const pending=r.pending;if(!pending||pending.to!==p.id)throw Error('今は防御できません');
+  const depth=pending.reactionDepth||0;
   const cards=ids.length?crSelect(p,ids,'defense',1,p.hand.length):[];
   if(!crCanPay(p,cards))throw Error('MPまたはコイン不足');
   const from=r.players.find(x=>x.id===pending.from);
@@ -310,7 +333,9 @@ function crDefend(r,p,ids){
   if(special){
     if(['reflect','reflect_full','reflect_double'].includes(special.effect)){
       redirected=[from];trick='跳ね返した！';
-      for(const mirror of allReflectors)crHit(r,from,crSafeDamage(incoming*(mirror.effect==='reflect_double'?2:1)),mirror.name+'の反射で');
+      if(depth<CR_REACTION_DEPTH){
+        for(const mirror of allReflectors)crQueueReaction(r,p,from,crSafeDamage(incoming*(mirror.effect==='reflect_double'?2:1)),mirror.name,mirror.emoji||'🪞',depth+1);
+      }else crLog(r,'🔒 反射連鎖が上限に達したため、今回の反射ダメージは発生しません');
     }else if(special.effect==='redirect'){
       const pool=crLiving(r).filter(x=>x.id!==p.id);
       if(pool.length){const victim=pool[crRand(pool.length)];redirected=[victim];trick='転送成功！';crHit(r,victim,incoming,special.name+'の転送で');}
@@ -329,8 +354,8 @@ function crDefend(r,p,ids){
     crRules(r,c,'defend',{self:p,target:from,damageTaken:dealt});
     if(c.effect==='mana')p.mp=crAdd(p.mp,3);
     if(pending.damage<=block&&!special){
-      if(c.effect==='reflect'){crLog(r,`↩️ ${p.name} は跳ね返した！`);crHit(r,from,incoming,'反射で');}
-      if(c.effect==='counter'){crLog(r,`⚔️ ${p.name} は反撃した！`);crHit(r,from,2,'反撃で');}
+      if(c.effect==='reflect'&&depth<CR_REACTION_DEPTH){crLog(r,`↩️ ${p.name} は跳ね返した！`);crQueueReaction(r,p,from,incoming,c.name,c.emoji||'↩️',depth+1);}
+      if(c.effect==='counter'&&depth<CR_REACTION_DEPTH){crLog(r,`⚔️ ${p.name} は反撃した！`);crQueueReaction(r,p,from,2,c.name,c.emoji||'🦔',depth+1);}
       crRules(r,c,'block',{self:p,target:from,damageTaken:0});
     }
   }
@@ -345,7 +370,7 @@ function crDefend(r,p,ids){
       if(e==='siphon'){const stolen=Math.min(p.mp,Math.max(1,Math.floor(dealt/2)));p.mp-=stolen;from.mp=crAdd(from.mp,stolen);}
     }
     pending.cards.forEach(c=>crRules(r,c,'hit',{self:from,target:p,damageDealt:dealt}));
-    if(p.guardian&&p.guardian.kind==='storm')crHit(r,from,2,'雷神の反撃で');
+    if(p.guardian&&p.guardian.kind==='storm'&&depth<CR_REACTION_DEPTH)crQueueReaction(r,p,from,2,'雷神の反撃','⚡',depth+1);
   }
   const reflected=!!special&&['reflect','reflect_full','reflect_double'].includes(special.effect);
   const counter=pending.damage<=block&&cards.some(c=>c.effect==='counter');
@@ -353,7 +378,8 @@ function crDefend(r,p,ids){
   const afflicted=dealt>0?pending.effects.filter(x=>['poison','burn','freeze'].includes(x)).map(x=>({poison:'毒',burn:'炎上',freeze:'凍結'}[x])).join('・'):'';
   const detail='攻:'+pending.cards.map(c=>c.name).join('＋')+' / 防:'+(cards.length?cards.map(c=>c.name).join('＋'):'なし')+'｜攻'+pending.damage+' / 守'+block+(afflicted?'｜'+afflicted:'');
   crVisual(r,special?'reflect':reflected?'reflect':dealt===0?'safe':'damage',title,detail+(redirected.length?' → '+redirected.map(x=>x.name).join('・'):''),special?.emoji||(reflected?'↩️':dealt===0?'🛡️':'💥'),special?.effect||'');
-  r.pending=null;if(!crWinner(r))crNext(r);
+  r.pending=null;
+  if(!crWinner(r)&&!crContinueReaction(r))crNext(r);
 }
 function crUse(r,p,card,targetId){
   if(!crCanPay(p,[card]))throw Error('MPまたはコイン不足');
@@ -474,7 +500,7 @@ function crApply(r,msg,p){
     }
   }else if(msg.type==='start'){
     if(p.id!==r.host||!['lobby','finished'].includes(r.phase)||r.players.length<2)throw Error('開始できません（2人以上必要）');
-    r.phase='game';r.pending=null;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
+    r.phase='game';r.pending=null;r.reactionQueue=[];r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
     for(let i=r.players.length-1;i>0;i--){const j=crRand(i+1);[r.players[i],r.players[j]]=[r.players[j],r.players[i]];}
     r.turnIndex=0;
     r.players.forEach(x=>{Object.assign(x,crPlayer(x.id,x.name,x.bot));crDraw(r,x,9);});
