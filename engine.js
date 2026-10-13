@@ -85,6 +85,12 @@ function crVisual(r,kind,title,detail,icon='✨',variant=''){
  r.visualSeq=(r.visualSeq||0)+1;
  r.visualEvent={seq:r.visualSeq,kind,title:crText(title,50),detail:crText(detail,160),icon,variant};
 }
+function crEliminate(r,p,reason='戦闘で敗北'){
+  r.eliminationSeq=(r.eliminationSeq||0)+1;
+  r.lastElimination={seq:r.eliminationSeq,id:p.id,name:p.name,cause:crText(reason,70)};
+  crLog(r,'💀 '+p.name+' は脱落！ '+reason);
+  crVisual(r,'elimination','脱落！',p.name+'｜'+reason,'💀');
+}
 function crLiving(r){return r.players.filter(crLive);}
 function crPick(r){
   const pool=CR_BASE.concat(r.cards);const sum=pool.reduce((n,c)=>n+c.weight,0);let hit=Math.random()*sum;
@@ -102,7 +108,7 @@ function crHit(r,p,n,why){
   if(dealt)crLog(r,`💔 ${p.name} ${why||'ダメージ'} −${dealt}HP`);
   if(!crLive(p)&&p.guardian&&p.guardian.kind==='phoenix'){
     p.guardian=null;p.hp=8;crLog(r,`🦅 ${p.name} は不死鳥によって復活！ HP8`);
-  }else if(!crLive(p))crLog(r,`☠️ ${p.name} が脱落！`);
+  }else if(!crLive(p))crEliminate(r,p,why||'ダメージ');
   return dealt;
 }
 function crStatus(r,p,key,n){
@@ -200,6 +206,7 @@ function crWinner(r){
   if(r.phase!=='game')return true;
   const living=crLiving(r);if(living.length>1)return false;
   r.phase='finished';r.pending=null;r.deadline=0;r.winner=living.length?living[0].id:null;
+  crVisual(r,'victory',living.length?'優勝！':'全滅！',living.length?living[0].name+' が最後まで生き残った！':'生存者はいません','🏆');
   crLog(r,living.length?`🏆 ${living[0].name} の優勝！`:'🤝 全滅、引き分け！');return true;
 }
 function crStartTurn(r){
@@ -218,7 +225,7 @@ function crStartTurn(r){
   if(crWinner(r))return;
   if(!crLive(p)){crNext(r);return;}
   if(p.status.freeze){p.status.freeze--;crLog(r,`🧊 ${p.name} は凍結で行動不能！`);crNext(r);return;}
-  p.mp=Math.min(99,p.mp+3);crLog(r,'💠 '+p.name+' MPが3回復！');
+  p.shopUsed=false;p.mp=Math.min(99,p.mp+3);crLog(r,'💠 '+p.name+' MPが3回復！');
   crDraw(r,p,Math.max(0,9-p.hand.length));crLog(r,`🎯 ${p.name} のターン`);
   r.deadline=Date.now()+60000;
 }
@@ -337,12 +344,12 @@ function crUse(r,p,card,targetId){
   crRules(r,card,'play',{self:p,target:other||p});
   if(!crWinner(r))crNext(r);
 }
-function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shield:0,
+function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shield:0,shopUsed:false,
   status:{poison:0,burn:0,freeze:0,curse:0,weak:0},guardian:null,hand:[]};}
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
   turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:(r.pending.cards||[]).map(c=>({name:c.name,emoji:c.emoji,type:c.type,power:c.power}))}:null,
-  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,
-  players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,
+  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,
+  players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
   me:p.id,hand:p.hand,cards:r.cards,customCards:r.cards,log:r.log.slice(0,14),baseCardCount:CR_BASE.length};}
 function crBot(r){
@@ -376,7 +383,7 @@ function crSettle(r){
     break;
   }
 }
-function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,round:1,
+function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
   turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
   if(msg.type==='publish'){
@@ -397,7 +404,7 @@ function crApply(r,msg,p){
     }
   }else if(msg.type==='start'){
     if(p.id!==r.host||!['lobby','finished'].includes(r.phase)||r.players.length<2)throw Error('開始できません（2人以上必要）');
-    r.phase='game';r.pending=null;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.log=[];
+    r.phase='game';r.pending=null;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.log=[];
     for(let i=r.players.length-1;i>0;i--){const j=crRand(i+1);[r.players[i],r.players[j]]=[r.players[j],r.players[i]];}
     r.turnIndex=0;
     r.players.forEach(x=>{Object.assign(x,crPlayer(x.id,x.name,x.bot));crDraw(r,x,9);});
@@ -406,7 +413,7 @@ function crApply(r,msg,p){
     if(p.id!==r.host||r.phase!=='finished')throw Error('リセットできません');r.phase='lobby';r.winner=null;r.pending=null;
   }else if(msg.type==='leave'){
     if(r.phase==='game'&&crLive(p)){
-      p.guardian=null;p.hp=0;crLog(r,`🏳️ ${p.name} が降参`);
+      p.guardian=null;p.hp=0;crEliminate(r,p,'降参');
       if(r.pending&&r.pending.to===p.id){r.pending=null;crNext(r);}
       else if(!r.pending&&r.players[r.turnIndex].id===p.id)crNext(r);
       crWinner(r);
