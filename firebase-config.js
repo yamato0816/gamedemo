@@ -1,13 +1,13 @@
-/* Public Firebase Web App config (not a service-account key).
- Replace null with your Firebase Console web-app firebaseConfig once.
- Access is controlled by firebase.database.rules.json, not by hiding apiKey.
- Example:
- window.CHAOS_FIREBASE_CONFIG = {
-   apiKey: "AIza...",
-   authDomain: "your-project.firebaseapp.com",
-   databaseURL: "https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app",
-   projectId: "your-project",
-   appId: "1:123456789:web:abcdef"
- };
-*/
-window.CHAOS_FIREBASE_CONFIG = null;
+/* Firebase Web App configuration for the shared CHAOS RELIC project.
+   These are browser-facing project identifiers, not administrator credentials.
+   Access controls are enforced by Firebase Authentication and RTDB Rules.
+   Never include a service-account private key here. */
+window.CHAOS_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAKTPjSoPY7LKiobdpdH0VRzolIFVLLXiw",
+  authDomain: "chaos-relic.firebaseapp.com",
+  databaseURL: "https://chaos-relic-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "chaos-relic",
+  storageBucket: "chaos-relic.firebasestorage.app",
+  messagingSenderId: "248432246789",
+  appId: "1:248432246789:web:e5fb9033bd6d1e8b065c6c"
+};
