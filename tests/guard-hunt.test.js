@@ -38,7 +38,7 @@ const clones=(card,n,prefix,power=card.power)=>Array.from({length:n},(_,i)=>({..
 }
 {
  const r=room(),from=actor(r),to=other(r,from);
- const shield=game.card({name:'超絶防御',type:'defense',effect:'normal',power:0,cost:0,script:'def on_guard():\n    damage = incoming_damage()\n    boost_defense(damage)'},to.name);
+ const shield=game.card({name:'超絶防御',type:'defense',effect:'normal',power:0,cost:0,script:'def on_guard():\n    incoming = incoming_damage()\n    boost_defense(incoming)'},to.name);
  from.hand=[{...commonAttack,uid:'huge',power:35}];to.hand=[{...shield,uid:'defense'}];
  game.apply(r,from.id,{type:'attack',cards:['huge'],target:to.id});
  game.apply(r,to.id,{type:'defend',cards:['defense']});
