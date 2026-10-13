@@ -96,7 +96,42 @@ function gfEffect(){
  clearTimeout(animTimeout);animTimeout=setTimeout(()=>{holder.innerHTML='';holder.className='gf-battle-fx';},1950);
 }
 const originalRender=render;
-render=function(){originalRender();gfEffect();};
+let gfPreviousStats=null,gfPreviousRoom='',gfTransitionTimer=null;
+render=function(){
+ const roomKey=(state?.room||'')+':'+(state?.phase||'');
+ const changed=[],impactPlayers=new Set();
+ if(roomKey!==gfPreviousRoom){gfPreviousRoom=roomKey;gfPreviousStats=null;}
+ if(state?.phase==='game'){
+   const newer=new Map((state.players||[]).map(p=>[p.id,{name:p.name,hp:p.hp,mp:p.mp,gold:p.gold,shield:p.shield}]));
+   if(gfPreviousStats){
+     for(const [id,stats] of newer){
+       const old=gfPreviousStats.get(id);if(!old)continue;
+       for(const [key,icon] of [['hp','❤️'],['mp','💠'],['gold','🪙'],['shield','🛡️']]){
+         if(old[key]===stats[key])continue;
+         const diff=stats[key]-old[key],fmt=n=>Number(n).toLocaleString('ja-JP');
+         changed.push({id,name:stats.name,key,icon,old:fmt(old[key]),now:fmt(stats[key]),diff:diff>0?'+'+fmt(diff):fmt(diff)});
+         impactPlayers.add(id);
+       }
+     }
+   }
+   gfPreviousStats=newer;
+ }
+ originalRender();gfEffect();
+ if(changed.length&&document.querySelector('.gf-compact-field')){
+   document.getElementById('gf-impact-feed')?.remove();
+   const feed=document.createElement('div');feed.id='gf-impact-feed';feed.className='gf-impact-feed';
+   for(const stat of changed.slice(0,8)){
+     const row=document.createElement('div');row.className='gf-impact-row '+(stat.diff.startsWith('-')?'decrease':'increase');
+     row.textContent=stat.icon+' '+stat.name+' '+stat.key.toUpperCase()+' '+stat.old+' → '+stat.now+' ('+stat.diff+')';
+     feed.appendChild(row);
+   }
+   document.querySelector('.gf-compact-field').appendChild(feed);
+   clearTimeout(gfTransitionTimer);
+   gfTransitionTimer=setTimeout(()=>feed.remove(),3100);
+   const ids=(state.players||[]).map(p=>p.id);
+   document.querySelectorAll('.gf-small-score').forEach((el,i)=>{if(impactPlayers.has(ids[i]))el.classList.add('gf-stat-pulse')});
+ }
+};
 document.addEventListener('click',event=>{
  const btn=event.target.closest('[data-gf-action]');if(!btn)return;
  event.preventDefault();event.stopImmediatePropagation();
