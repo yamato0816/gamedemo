@@ -118,3 +118,8 @@
 .gf-compact-card.omen .gf-card-type-icon{background:#4f659a}
 .gf-compact-card.picked .gf-card-type-icon{box-shadow:0 0 0 2px #ffd553}
 @media(max-width:729px){.gf-card-type-icon{width:16px;height:16px;font-size:10px;left:0;top:0}}
+
+/* Python card execution status is visible without opening battle history. */
+.gf-script-status{padding:4px 8px;border-radius:8px;border:1px solid #82c49c;background:#e7ffef;color:#246944;font-size:11px;line-height:1.35;font-weight:800;overflow-wrap:anywhere;max-height:47px;overflow:auto}
+.gf-script-status.failed{border-color:#e99985;background:#fff0ec;color:#a43e30}
+@media(max-width:729px){.gf-script-status{font-size:9px;padding:3px 7px;max-height:31px}}
