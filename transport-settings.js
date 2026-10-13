@@ -83,12 +83,12 @@ document.addEventListener('click',ev=>{
  try{
   if(mode==='open')return panel();
   if(mode==='close')return document.getElementById('relay-settings')?.remove();
-  if(mode==='p2p'){localStorage.setItem('cr_transport_mode','p2p');location.reload();return}
+  if(mode==='p2p'){localStorage.setItem('cr_transport_mode','p2p');const u=new URL(location.href);u.searchParams.delete('transport');history.replaceState(null,'',u.toString());location.reload();return}
   if(mode==='relay'){
    const v=document.getElementById('cr-relay')?.value.trim().replace(/\/$/,'');
    if(!/^wss:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(v||''))throw Error('中継URLは wss://ホスト名 の形式で指定してください');
    localStorage.setItem('cr_relay_url',v);
-   localStorage.setItem('cr_transport_mode','relay');location.reload();return;
+   localStorage.setItem('cr_transport_mode','relay');const u=new URL(location.href);u.searchParams.delete('transport');history.replaceState(null,'',u.toString());location.reload();return;
   }
   if(mode==='firebase'){
    const raw=document.getElementById('cr-firebase')?.value||'';
