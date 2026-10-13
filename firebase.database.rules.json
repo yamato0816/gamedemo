@@ -8,8 +8,8 @@
         ".write": "auth != null && data.child('meta/hostUid').val() === auth.uid",
         "meta": {
           ".read": "auth != null",
-          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
-          ".validate": "newData.hasChildren(['hostUid','createdAt']) && newData.child('hostUid').isString() && newData.child('createdAt').isNumber()"
+          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid) || (data.child('connected').val() === false && root.child('rooms').child($room).child('participants').child(auth.uid).exists() && newData.child('hostUid').val() === auth.uid))",
+          ".validate": "newData.hasChildren(['hostUid','createdAt','connected']) && newData.child('hostUid').isString() && newData.child('createdAt').isNumber() && newData.child('connected').isBoolean() && (data.child('hostUid').val() === newData.child('hostUid').val() || (!data.child('connected').exists() && !data.exists()) || (data.child('connected').val() === false && newData.child('hostUid').val() === auth.uid && root.child('rooms').child($room).child('participants').child(auth.uid).exists()))"
         },
         "participants": {
           "$uid": {
@@ -35,6 +35,10 @@
               ".validate": "newData.hasChildren(['action','createdAt']) && newData.child('createdAt').isNumber() && newData.child('action').hasChildren(['type']) && newData.child('action').child('type').isString()"
             }
           }
+        },
+        "checkpoint": {
+          ".read": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid",
+          ".write": "auth != null && root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid"
         }
       }
     }
