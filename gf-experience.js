@@ -5,7 +5,7 @@ const iconMap={phoenix:'🦅',turtle:'🐢',sprite:'🧚',storm:'⚡',muse:'🌙
 const statuses={poison:['☠','毒','自分の手番開始時に2ダメージ'],burn:['🔥','炎上','自分の手番開始時に3ダメージ'],freeze:['❄','凍結','次の行動ができなくなる'],curse:['◈','呪い','自分の手番開始時にMPが2減る'],weak:['↓','弱体','次の攻撃威力が3減る']};
 const gods={phoenix:['不死鳥','倒れると一度だけHP8で復活'],turtle:['玄武','受けるダメージを3軽減'],sprite:['妖精','手番開始時にHPを3回復'],storm:['雷神','攻撃を受けると相手へ2ダメージ'],muse:['月の女神','手番開始時にMPを3回復']};
 const omens={blessing:['天の祝福','全員がHPを5回復'],meteor:['流星雨','全員が4ダメージを受ける'],exchange:['資源の逆転','MPとお金が入れ替わる'],silence:['静寂','全員のMPが3減る'],fog:['深い霧','全員に弱体を2付与'],mana_rain:['魔力の雨','全員のMPが5増える'],earthquake:['地鳴り','全員に3ダメージ'],random:['未知の現象','ランダムな超常現象が発生']};
-const descriptions={normal:'基本的な攻撃・防御',reflect:'完全防御時に相手へ反射ダメージ',counter:'完全防御時に相手へ反撃',pierce:'防御値を一部無視する',drain:'与えたダメージでHP吸収',splash:'周囲にも巻き添えダメージ',wild:'確率で強化または空振り',burn:'炎上を付与',poison:'毒を付与',freeze:'凍結を付与',curse:'呪いを付与',heal:'HPを回復',mana:'MPを回復',gold:'お金を増やす',draw:'手札を補充',cleanse:'状態異常を解除',lottery:'お金が増減するくじ',blast:'攻撃魔法',hex:'ランダムな呪い',phoenix:'不死鳥の守護',turtle:'玄武の守護',sprite:'妖精の守護',storm:'雷神の守護',muse:'月の女神の守護',random:'ランダムな超常現象',blessing:'祝福',meteor:'流星雨',exchange:'資源の交換',reflect_full:'受けた攻撃を全威力で相手に返す',reflect_double:'受けた攻撃を2倍にして相手へ返す',redirect:'攻撃をランダムなほかのプレイヤーに転送',scatter:'攻撃を最大3人に分散する',nullify:'どんな攻撃も無効化する',absorb:'攻撃ダメージからMPを得る',chain:'攻撃命中時に周囲へ連鎖ダメージ',double_hit:'攻撃命中時に追加攻撃',siphon:'攻撃命中で相手のMPを奪う',swap_hp:'選んだ相手とHPを交換',mass_poison:'ほかの全員を毒にする',steal_mp:'相手のMPを奪う',scramble:'全員の手札を引き直させる'};
+const descriptions={guard_hunt:'相手が持つ防御札の枚数×この札の威力',normal:'基本的な攻撃・防御',reflect:'完全防御時に相手へ反射ダメージ',counter:'完全防御時に相手へ反撃',pierce:'防御値を一部無視する',drain:'与えたダメージでHP吸収',splash:'周囲にも巻き添えダメージ',wild:'確率で強化または空振り',burn:'炎上を付与',poison:'毒を付与',freeze:'凍結を付与',curse:'呪いを付与',heal:'HPを回復',mana:'MPを回復',gold:'お金を増やす',draw:'手札を補充',cleanse:'状態異常を解除',lottery:'お金が増減するくじ',blast:'攻撃魔法',hex:'ランダムな呪い',phoenix:'不死鳥の守護',turtle:'玄武の守護',sprite:'妖精の守護',storm:'雷神の守護',muse:'月の女神の守護',random:'ランダムな超常現象',blessing:'祝福',meteor:'流星雨',exchange:'資源の交換',reflect_full:'受けた攻撃を全威力で相手に返す',reflect_double:'受けた攻撃を2倍にして相手へ返す',redirect:'攻撃をランダムなほかのプレイヤーに転送',scatter:'攻撃を最大3人に分散する',nullify:'どんな攻撃も無効化する',absorb:'攻撃ダメージからMPを得る',chain:'攻撃命中時に周囲へ連鎖ダメージ',double_hit:'攻撃命中時に追加攻撃',siphon:'攻撃命中で相手のMPを奪う',swap_hp:'選んだ相手とHPを交換',mass_poison:'ほかの全員を毒にする',steal_mp:'相手のMPを奪う',scramble:'全員の手札を引き直させる'};
 function gfScore(p) {
  const stats=Object.entries(statuses).filter(([k])=>(p[k]||0)>0).map(([k,v])=>`<span class="gf-status" title="${e(v[1]+': '+v[2])}">${v[0]}${p[k]}</span>`).join('');
  const targetable=p.id!==state.me&&p.hp>0;
@@ -18,9 +18,11 @@ function gfFighter(p,label,cards) {
  return `<div class="gf-fighter"><div class="gf-fighter-title"><span class="gf-mark"></span>${e(p?.name||'待機中')}</div><small>${label}</small><div class="gf-played-cards">${cards?.length?cards.slice(0,3).map(gfTopCard).join(''):gfTopCard(null)}</div></div>`;
 }
 let gfHoldTimer=0,gfWasHold=false,gfInfoUid='';
+const gfCardKind={attack:['⚔','攻撃札'],defense:['🛡','防御札'],magic:['✦','奇跡札'],item:['🧪','道具札'],guardian:['👼','守護神札'],omen:['☄','超常現象札']};
 function gfCardIcon(c,enabled){
  const active=chosen.has(c.uid);
- return `<button class="gf-compact-card ${e(c.type)} ${active?'picked':''} ${enabled?'usable':'unusable'}" data-gf-action="card" data-id="${e(c.uid)}" title="${e(c.name)} / ${c.power?'威力'+c.power:'特殊'} / ${c.cost?'消費MP'+c.cost:'無料'}" aria-label="${e(c.name)}（長押しで詳細）" aria-pressed="${active}"><span class="gf-card-em">${e(c.emoji||'🃏')}</span>${c.power?`<b class="gf-card-pow">${c.type==='defense'?'守':'攻'}${c.power}</b>`:''}${c.cost?`<small class="gf-card-mp">${c.resource==='gold'?'¥':'◆'}${c.cost}</small>`:''}</button>`;
+ const kind=gfCardKind[c.type]||['?','不明な札'];
+ return `<button class="gf-compact-card ${e(c.type)} ${active?'picked':''} ${enabled?'usable':'unusable'}" data-gf-action="card" data-id="${e(c.uid)}" title="${e(c.name)} / ${c.power?'威力'+c.power:'特殊'} / ${c.cost?'消費MP'+c.cost:'無料'}" aria-label="${e(c.name)}（長押しで詳細）" aria-pressed="${active}"><span class="gf-card-type-icon" aria-hidden="true" title="${e(kind[1])}">${e(kind[0])}</span><span class="gf-card-em">${e(c.emoji||'🃏')}</span>${c.power?`<b class="gf-card-pow">${c.type==='defense'?'守':'攻'}${c.power}</b>`:''}${c.cost?`<small class="gf-card-mp">${c.resource==='gold'?'¥':'◆'}${c.cost}</small>`:''}</button>`;
 }
 function gfCardInfo(id){
  const c=state?.hand.find(c=>c.uid===id);if(!c)return;
@@ -39,14 +41,14 @@ battle=function(){
  const to=incoming?state.players.find(p=>p.id===incoming.to):state.players.find(p=>p.id===target);
  const cards=incoming?.cards||((active&&held.length)?held:[]);
  const info=gfCurrentEvent();
- const cmds=def?`<button class="gf-primary" data-action="defend">🛡 弾く ${held.length?held.length+'枚':''}</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
+ const cmds=def?`<button class="gf-primary" data-action="defend">🛡 ${held.length?held.length+'枚重ねて防御':''+(held.length?'':'' )}</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
  const played=c=>c?`<span class="gf-play-small">${e(c.emoji||'🃏')}<small>${e(c.name)}</small></span>`:'<span class="gf-play-small quiet">？<small>待機</small></span>';
  return `<div class="gf-game gf-compact"><header class="gf-game-header"><span>✦ CHAOS RELIC</span><strong>第${state.round}R</strong><span id="clock" class="gf-timer">--秒</span><button data-gf-action="dictionary" title="辞書">📖</button></header>
  <div class="gf-field gf-compact-field"><div class="gf-announcement ${e(info.kind||'neutral')}"><span>${e(info.icon||'✦')}</span><div><b>${e(info.title||'対戦中')}</b><small>${e(info.detail||'次の行動を待っています')}</small></div></div>
  <div class="gf-compact-duel"><div><b>${e(from?.name||'攻撃側')}</b>${played(cards[0])}</div><span class="gf-duel-arrow">➜<small>${incoming?'攻 '+incoming.damage:'攻防'}</small></span><div><b>${e(to?.name||'防御側')}</b>${played(cards[1])}</div></div>
- <div class="gf-hand-heading gf-compact-title"><b>持ち札 <small>${state.hand.length}枚</small></b><span>タップで選択・長押しで説明</span></div>
+ <div class="gf-hand-heading gf-compact-title"><b>持ち札 <small>${state.hand.length}枚</small></b><span>${def?'防御札は全部重ねられます':'⚔ 攻撃 / 🛡 防御　長押しで説明'}</span></div>
  <section class="gf-icon-grid" aria-label="持ち札">${state.hand.map(c=>gfCardIcon(c,(def&&c.type==='defense')||(active&&c.type!=='defense'))).join('')}</section>
- <div class="gf-compact-selection">${held.length?'選択：'+held.map(c=>e(c.name)).join('＋'):'札を選んでください'}${target?`<span>標的：${e(state.players.find(p=>p.id===target)?.name||'')}</span>`:''}</div>
+ <div class="gf-compact-selection">${held.length?(def?'防御 '+held.length+'枚 / 合計守'+held.reduce((n,c)=>n+c.power,0):'選択：'+held.map(c=>e(c.name)).join('＋')):'札を選んでください'}${target?`<span>標的：${e(state.players.find(p=>p.id===target)?.name||'')}</span>`:''}</div>
  <div class="gf-controls gf-compact-controls">${cmds}</div>
  <div class="gf-compact-scores">${state.players.map(gfSimpleScore).join('')}</div>
  <div class="gf-compact-nav"><button data-gf-action="dictionary">📚 辞書</button><button data-gf-action="history">📜 履歴</button><button data-action="leave">退出</button>${state.phenomenon?`<span>🌌 ${e(omens[state.phenomenon.kind]?.[0]||'超常現象')}</span>`:''}</div>
