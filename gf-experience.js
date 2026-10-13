@@ -19,10 +19,11 @@ function gfFighter(p,label,cards) {
 }
 let gfHoldTimer=0,gfWasHold=false,gfInfoUid='';
 const gfCardKind={attack:['⚔','攻撃札'],defense:['🛡','防御札'],magic:['✦','奇跡札'],item:['🧪','道具札'],guardian:['👼','守護神札'],omen:['☄','超常現象札']};
+function gfCompactNum(n){const x=Number(n)||0;return Math.abs(x)>=1000?x.toLocaleString('ja-JP',{notation:'compact',maximumFractionDigits:1}):String(x);}
 function gfCardIcon(c,enabled){
  const active=chosen.has(c.uid);
  const kind=gfCardKind[c.type]||['?','不明な札'];
- return `<button class="gf-compact-card ${e(c.type)} ${active?'picked':''} ${enabled?'usable':'unusable'}" data-gf-action="card" data-id="${e(c.uid)}" title="${e(c.name)} / ${c.power?'威力'+c.power:'特殊'} / ${c.cost?'消費MP'+c.cost:'無料'}" aria-label="${e(c.name)}（長押しで詳細）" aria-pressed="${active}"><span class="gf-card-type-icon" aria-hidden="true" title="${e(kind[1])}">${e(kind[0])}</span><span class="gf-card-em">${e(c.emoji||'🃏')}</span>${c.power?`<b class="gf-card-pow">${c.type==='defense'?'守':'攻'}${c.power}</b>`:''}${c.cost?`<small class="gf-card-mp">${c.resource==='gold'?'¥':'◆'}${c.cost}</small>`:''}</button>`;
+ return `<button class="gf-compact-card ${e(c.type)} ${active?'picked':''} ${enabled?'usable':'unusable'}" data-gf-action="card" data-id="${e(c.uid)}" title="${e(c.name)} / ${c.power?'威力'+c.power:'特殊'} / ${c.cost?'消費MP'+c.cost:'無料'}" aria-label="${e(c.name)}（長押しで詳細）" aria-pressed="${active}"><span class="gf-card-type-icon" aria-hidden="true" title="${e(kind[1])}">${e(kind[0])}</span><span class="gf-card-em">${e(c.emoji||'🃏')}</span>${c.power?`<b class="gf-card-pow">${c.type==='defense'?'守':'攻'}${gfCompactNum(c.power)}</b>`:''}${c.cost?`<small class="gf-card-mp">${c.resource==='gold'?'¥':'◆'}${c.cost}</small>`:''}</button>`;
 }
 function gfCardInfo(id){
  const c=state?.hand.find(c=>c.uid===id);if(!c)return;
@@ -41,10 +42,15 @@ battle=function(){
  const to=incoming?state.players.find(p=>p.id===incoming.to):state.players.find(p=>p.id===target);
  const cards=incoming?.cards||((active&&held.length)?held:[]);
  const info=gfCurrentEvent();
+ const script=state?.scriptFeedback;
+ const activeScript=script&&Date.now()-(script.at||0)<20000;
+ const scriptBadge=activeScript?`<div class="gf-script-status ${script.ok?'success':'failed'}" role="status">🐍 ${e(script.card)} / on_${e(script.event)}：${script.ok?e(script.actions)+'効果が実行されました':'エラー：'+e(script.message||'不明')}</div>`:'';
+
  const cmds=def?`<button class="gf-primary" data-action="defend">🛡 防御する ${held.length?'('+held.length+'枚)':''}</button><button class="gf-secondary" data-gf-action="all-guards">まとめて選ぶ</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
  const played=c=>c?`<span class="gf-play-small">${e(c.emoji||'🃏')}<small>${e(c.name)}</small></span>`:'<span class="gf-play-small quiet">？<small>待機</small></span>';
  return `<div class="gf-game gf-compact"><header class="gf-game-header"><span>✦ CHAOS RELIC</span><strong>第${state.round}R</strong><span id="clock" class="gf-timer">--秒</span><button data-gf-action="dictionary" title="辞書">📖</button></header>
  <div class="gf-field gf-compact-field"><div class="gf-announcement ${e(info.kind||'neutral')}"><span>${e(info.icon||'✦')}</span><div><b>${e(info.title||'対戦中')}</b><small>${e(info.detail||'次の行動を待っています')}</small></div></div>
+ ${scriptBadge}
  <div class="gf-compact-duel"><div><b>${e(from?.name||'攻撃側')}</b>${played(cards[0])}</div><span class="gf-duel-arrow">➜<small>${incoming?'攻 '+incoming.damage:'攻防'}</small></span><div><b>${e(to?.name||'防御側')}</b>${played(cards[1])}</div></div>
  <div class="gf-hand-heading gf-compact-title"><b>持ち札 <small>${state.hand.length}枚</small></b><span>${def?'防御札は全部重ねられます':'⚔ 攻撃 / 🛡 防御　長押しで説明'}</span></div>
  <section class="gf-icon-grid" aria-label="持ち札">${state.hand.map(c=>gfCardIcon(c,(def&&c.type==='defense')||(active&&c.type!=='defense'))).join('')}</section>
