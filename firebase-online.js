@@ -60,8 +60,13 @@ class FirebaseOnline{
    if(!snap.val()){this.onInfo('Firebase接続待ち / 再接続中');return}
    this.onInfo(this.ready?'Firebaseで接続中':'Firebaseに接続しました');
    if(this.ready){
-    const ref=this.isHost?this.roomRef:this.participantRef;
-    ref?.onDisconnect().remove().catch(err=>this.onError('切断監視: '+errorText(err)));
+    if(this.isHost){
+      this.roomRef?.onDisconnect().remove().catch(err=>this.onError('切断監視: '+errorText(err)));
+    }else if(this.participantRef){
+      this.participantRef.set({name:this.name,joinedAt:Date.now()})
+       .then(()=>this.participantRef?.onDisconnect().remove())
+       .catch(err=>this.onError('再接続: '+errorText(err)));
+    }
    }
   });
  }
@@ -81,6 +86,11 @@ class FirebaseOnline{
    if(!this.code)throw Error('部屋コードが重複しました。もう一度作成してください');
    this.roomRef=this.db.ref('rooms/'+this.code);
    await this.roomRef.onDisconnect().remove();
+   this._listen(this.roomRef.child('meta'),'value',snap=>{
+     if(this.ready&&!snap.exists()){
+       this.ready=false;clearInterval(this.clock);this.onClosed('Firebaseの部屋が閉じられました。新しい部屋を作成してください');
+     }
+   });
    this.participantRef=this.roomRef.child('participants/'+this.id);
    await this.participantRef.set({name:this.name,joinedAt:Date.now()});
    this.room=GameEngine.create(this.code,this.id,this.name);
