@@ -18,7 +18,13 @@ const explainPeerError=err=>{
 };
 class Online{
  constructor({onState,onInfo,onError,onClosed}){
-  if(typeof RelayOnline==='function'&&localStorage.getItem('cr_relay_url'))return new RelayOnline({onState,onInfo,onError,onClosed});
+  const transport=localStorage.getItem('cr_transport_mode');
+  if(transport==='firebase'){
+   if(typeof FirebaseOnline!=='function')throw Error('Firebase通信ライブラリが見つかりません');
+   return new FirebaseOnline({onState,onInfo,onError,onClosed});
+  }
+  if((transport==='relay'||(!transport&&localStorage.getItem('cr_relay_url')))&&typeof RelayOnline==='function')
+   return new RelayOnline({onState,onInfo,onError,onClosed});
   Object.assign(this,{onState,onInfo,onError,onClosed});this.peer=null;this.connection=null;this.connections=new Map();this.room=null;this.code='';this.isHost=false;this.name='';this.clock=null;this.lastStamp='';this.ready=false;this.heartbeat=0;
  }
  _makePeer(id){
