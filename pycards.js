@@ -111,7 +111,7 @@ function run(program,event,ctx,actions){
   const stmts=program.handlers?.[event];if(!stmts)return {actions:0};
   const vars=Object.create(null);let steps=0,count=0;
   const tick=()=>{if(++steps>550)fail('処理数の上限を超えました');};
-  const n=v=>{const num=Number(v);return Number.isFinite(num)?Math.max(-Number.MAX_SAFE_INTEGER,Math.min(Number.MAX_SAFE_INTEGER,num)):0;};
+  const n=v=>{const num=Number(v);if(Number.isNaN(num))return 0;return Math.max(-Number.MAX_SAFE_INTEGER,Math.min(Number.MAX_SAFE_INTEGER,num));};
   const cap=(v,lo=0,hi=Number.MAX_SAFE_INTEGER)=>Math.max(lo,Math.min(hi,Math.round(n(v))));
   const check=(val,list,msg)=>{if(!list.includes(val))fail('無効な'+msg+': '+String(val));return val;};
   const who=v=>check(v,WHOS,'対象');
@@ -160,7 +160,7 @@ function run(program,event,ctx,actions){
       if(node.op==='==')return a===b;if(node.op==='!=')return a!==b;if(node.op==='>')return a>b;if(node.op==='<')return a<b;if(node.op==='>=')return a>=b;if(node.op==='<=')return a<=b;
       if(node.op==='+')return n(a)+n(b);if(node.op==='-')return n(a)-n(b);if(node.op==='*')return n(a)*n(b);
       if(node.op==='/'||node.op==='//'||node.op==='%'){if(!n(b))fail('0で割れません');return node.op==='/'?n(a)/n(b):node.op==='//'?Math.floor(n(a)/n(b)):n(a)%n(b);}
-      if(node.op==='**')return n(a)**Math.min(5,Math.abs(n(b)));
+      if(node.op==='**')return n(Math.pow(n(a),Math.max(-1000,Math.min(1000,n(b)))));
     }fail('不正な式');
   }
   function execute(body){for(const s of body){tick();
