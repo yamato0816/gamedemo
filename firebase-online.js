@@ -223,7 +223,7 @@ class FirebaseOnline{
    this._broadcast();
   }else{
    if(JSON.stringify(action).length>12000)throw Error('操作が大きすぎます');
-   this.roomRef.child('actions/'+this.id).push({action,createdAt:Date.now()}).catch(err=>this.onError('送信失敗: '+errorText(err)));
+   this.roomRef.child('actions/'+this.id).push().set({action,createdAt:Date.now()}).catch(err=>this.onError('送信失敗: '+errorText(err)));
   }
  }
  disconnect(){
