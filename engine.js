@@ -493,7 +493,7 @@ function crApply(r,msg,p){
       if(r.pending||r.players[r.turnIndex].id!==p.id)throw Error('今はあなたのターンではありません');
       if(msg.type==='shop'){crShop(r,p,msg.item,msg.target);
       }else if(msg.type==='attack'){
-        const cards=crSelect(p,msg.cards,'attack');
+        const cards=crSelect(p,msg.cards,'attack',1,p.hand.length);
         if(!crCanPay(p,cards))throw Error('MPかコインが足りません');
         const target=r.players.find(x=>x.id===msg.target&&crLive(x)&&x.id!==p.id);if(!target)throw Error('攻撃相手を選択してください');
         crSpend(p,cards);crTake(r,p,cards);crAttack(r,p,target,cards);
