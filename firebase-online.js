@@ -106,6 +106,7 @@ class FirebaseOnline{
    });
    this.participantRef=this.roomRef.child('participants/'+this.id);
    await this.participantRef.set({name:this.name,joinedAt:Date.now()});
+   await this.participantRef.onDisconnect().remove();
    this.room=GameEngine.create(this.code,this.id,this.name);
    this.members.add(this.id);
    this.ready=true;
@@ -223,9 +224,14 @@ class FirebaseOnline{
    if(!data||data.code!==this.code||!Array.isArray(data.players)||!data.players.some(p=>p.id===this.id))
     throw Error('引継ぎ可能な対戦データがありません。部屋を作り直してください');
    this.room=data;this.room.host=this.id;
+   // A crashed host has already disappeared from participants; surrender that
+   // player so the next turn never waits for someone whose tab is gone.
+   const online=(await this.roomRef.child('participants').once('value')).val()||{};
+   for(const p of [...this.room.players])if(!p.bot&&!online[p.id])GameEngine.leave(this.room,p.id);
    this.isHost=true;this.ready=true;
    this.members.clear();this.members.add(this.id);
    await this.participantRef?.onDisconnect().cancel();
+   await this.participantRef?.onDisconnect().remove();
    await this.roomRef.child('meta').onDisconnect().update({connected:false});
    const members=this.roomRef.child('participants');
    this._listen(members,'child_added',snap=>{
