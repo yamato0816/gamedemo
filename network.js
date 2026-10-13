@@ -3,6 +3,19 @@
 'use strict';
 const sanitizeName=n=>String(n||'旅人').replace(/[<>\r\n]/g,'').trim().slice(0,14)||'旅人';
 const PREFIX='chaosrelic26-';
+// Use local cryptographic IDs for guests too: no /peerjs/id request (which can return 404).
+const randomPeerId=()=>{
+ const alphabet='abcdefghjkmnpqrstuvwxyz23456789';
+ const entropy=crypto.getRandomValues(new Uint8Array(18));
+ return PREFIX+'guest-'+Array.from(entropy,n=>alphabet[n%alphabet.length]).join('');
+};
+const explainPeerError=err=>{
+ const kind=err?.type||'';
+ if(kind==='peer-unavailable')return '部屋が見つかりません。部屋コードとホストの接続を確認してください';
+ if(kind==='unavailable-id')return '通信IDが既に使用されています。もう一度お試しください';
+ if(['network','server-error','socket-error','socket-closed','ssl-unavailable'].includes(kind))return 'PeerJSシグナリングサーバーに接続できません。ネットワーク設定を確認してください ('+kind+')';
+ return String(err?.message||err||'不明な通信エラー');
+};
 class Online{
  constructor({onState,onInfo,onError,onClosed}){
   Object.assign(this,{onState,onInfo,onError,onClosed});this.peer=null;this.connection=null;this.connections=new Map();this.room=null;this.code='';this.isHost=false;this.name='';this.clock=null;this.lastStamp='';this.ready=false;this.heartbeat=0;
@@ -13,22 +26,22 @@ class Online{
  }
  create(name){return new Promise((resolve,reject)=>{
   this.disconnect();this.name=sanitizeName(name);this.code=Array.from(crypto.getRandomValues(new Uint8Array(7)),v=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[v%32]).join('');
-  this.isHost=true;let settled=false;
-  try{this.peer=this._makePeer(PREFIX+this.code.toLowerCase());}catch(e){reject(e);return;}
+  this.isHost=true;let settled=false;const wait=setTimeout(()=>{if(!settled){settled=true;this.disconnect();reject(Error('P2Pサーバーへの接続がタイムアウトしました（20秒）。ネットワークまたはシグナリングサーバーを確認してください'));}},20000);
+  try{this.peer=this._makePeer(PREFIX+this.code.toLowerCase());}catch(e){clearTimeout(wait);reject(e);return;}
   this.peer.on('open',id=>{
    this.ready=true;this.room=GameEngine.create(this.code,id,this.name);this.onInfo('P2P ホスト接続中');this._broadcast();
    this.clock=setInterval(()=>{if(!this.room)return;const snap=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});GameEngine.settle(this.room);const snap2=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});if(snap!==snap2||(++this.heartbeat%5===0))this._broadcast();},950);
-   settled=true;resolve(this.code);
+   settled=true;clearTimeout(wait);resolve(this.code);
   });
   this.peer.on('connection',conn=>this._accept(conn));
-  this.peer.on('error',err=>{this.onError('接続エラー: '+err.message);if(!settled)reject(err);});
+  this.peer.on('error',err=>{this.onError('接続エラー: '+explainPeerError(err));if(!settled){settled=true;clearTimeout(wait);reject(Error(explainPeerError(err)));}});
   this.peer.on('disconnected',()=>this.onInfo('接続先を再探索中'));
  });}
  join(code,name){return new Promise((resolve,reject)=>{
   this.disconnect();this.isHost=false;this.name=sanitizeName(name);this.code=String(code).trim().toUpperCase();
   if(!/^[A-HJ-NP-Z2-9]{7}$/.test(this.code)){reject(Error('部屋コードは7文字です'));return;}
-  let settled=false;let wait;
-  try{this.peer=this._makePeer();}catch(e){reject(e);return;}
+  let settled=false;const wait=setTimeout(()=>{if(!settled){settled=true;this.disconnect();reject(Error('接続がタイムアウトしました（20秒）。部屋コード・ホスト・NAT設定を確認してください'));}},20000);
+  try{this.peer=this._makePeer(randomPeerId());}catch(e){clearTimeout(wait);reject(e);return;}
   this.peer.on('open',()=>{
     this.onInfo('ホストに接続しています…');
     const conn=this.peer.connect(PREFIX+this.code.toLowerCase(),{reliable:true,serialization:'json'});this.connection=conn;
@@ -40,9 +53,9 @@ class Online{
     });
     conn.on('close',()=>{this.ready=false;this.onClosed('ホストとの接続が切れました');});
     conn.on('error',err=>{this.onError(err.message);if(!settled){settled=true;clearTimeout(wait);reject(err);}});
-    wait=setTimeout(()=>{if(!settled){settled=true;reject(Error('接続がタイムアウトしました。NATやファイアウォールでWebRTCが使えない可能性があります'));}},16000);
+    // Timeout covers both signaling and WebRTC negotiations.
   });
-  this.peer.on('error',err=>{this.onError('PeerJS: '+err.message);if(!settled){settled=true;clearTimeout(wait);reject(err);}});
+  this.peer.on('error',err=>{this.onError('PeerJS: '+explainPeerError(err));if(!settled){settled=true;clearTimeout(wait);reject(Error(explainPeerError(err)));}});
  });}
  _accept(conn){
   conn.on('data',msg=>{
