@@ -112,6 +112,10 @@ def on_hit():
 | `steal(key, amount)` | `"mp"`/`"gold"`と数量 | 対象から自分へ移す |
 | `boost_attack(n)` | 攻撃威力の加算量 | 現在発動中の攻撃に威力を加える |
 | `boost_defense(n)` | 防御威力の加算量 | 防御前の防御力に加算する |
+| `multiply_attack(factor)` | 倍率（例: `3`） | 現在の攻撃威力を乗算 |
+| `discard(who, type, n)` | 対象・カードタイプ（`"any"`可）・枚数 | 指定されたプレイヤーの手札を破棄 |
+| `swap_hands()` | 引数なし | 自分と対象の手札を丸ごと交換 |
+
 
 `who` は `"self"`、`"target"`、`"everyone"`、`"all_enemies"`、`"random_enemy"` から選択します。
 
@@ -159,3 +163,24 @@ def on_play():
 ## 反射・反撃への防御
 
 反射鏡、針のよろい等の反撃、雷神の反撃は、反撃相手を新しく防御待ちにします。**返ってきた攻撃にも防御札を選べます。** 無限反射を防ぐため、反射の連鎖は6回で停止します。
+
+## より複雑な能力の例
+
+```python
+card.name = "次元交換の天罰"
+card.description = "相手が防御札を4枚以上持っているとき、すべて破棄してから攻撃を3倍にする。"
+card.type = "attack"
+card.emoji = "🌀"
+card.power = 50
+card.cost = 10
+
+def on_play():
+    n = count_cards(target.hand, "defense")
+    if n >= 4:
+        discard("target", "defense", n)
+        multiply_attack(3)
+```
+
+自作の `on_guard()` / `on_block()` / `on_defend()` からの `damage("target", ...)` も、相手が**防御できる反撃**として送られます。
+
+注意: カードの手札破棄などの直接状態操作は、発動タイミングと順序で結果が変わります。カード工房の「🧪 実行テスト」で確認してください。日本語の説明用JSONはMarkdown形式のこの文書でも参照できます。
