@@ -216,8 +216,17 @@ function crRules(r,card,event,ctx){
     boost_attack:(n)=>{if(r.pending&&r.pending.from===ctx.self.id)r.pending.damage=crSafeDamage(r.pending.damage+n);},
     boost_defense:(n)=>{if(ctx.guardBonus)ctx.guardBonus.value=crSafeDamage(ctx.guardBonus.value+n);},
   });
-  if(result.actions>0)crLog(r,`🐍 ${card.name} の特殊能力が発動！`);
-  }catch(err){crLog(r,`⚠ ${card.name} の能力エラー: ${String(err.message||err).slice(0,50)}`);}
+  if(result.actions>0){
+    crLog(r,`🐍 ${card.name}｜on_${event}：${result.actions}効果が発動！`);
+    r.scriptSeq=(r.scriptSeq||0)+1;
+    r.scriptFeedback={seq:r.scriptSeq,card:card.name,event,actions:result.actions,ok:true,at:Date.now()};
+  }
+  }catch(err){
+    const message=String(err.message||err).slice(0,160);
+    crLog(r,`⚠ ${card.name}｜on_${event}：${message}`);
+    r.scriptSeq=(r.scriptSeq||0)+1;
+    r.scriptFeedback={seq:r.scriptSeq,card:card.name,event,ok:false,message,at:Date.now()};
+  }
 }
 function crWinner(r){
   if(r.phase!=='game')return true;
@@ -373,7 +382,7 @@ function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shi
   status:{poison:0,burn:0,freeze:0,curse:0,weak:0},guardian:null,hand:[]};}
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
   turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:(r.pending.cards||[]).map(c=>({name:c.name,emoji:c.emoji,type:c.type,power:c.power}))}:null,
-  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,
+  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,
   players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
   me:p.id,hand:p.hand,cards:r.cards,customCards:r.cards,log:r.log.slice(0,14),baseCardCount:CR_BASE.length};}
@@ -462,7 +471,7 @@ function crApply(r,msg,p){
     }
   }else if(msg.type==='start'){
     if(p.id!==r.host||!['lobby','finished'].includes(r.phase)||r.players.length<2)throw Error('開始できません（2人以上必要）');
-    r.phase='game';r.pending=null;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.log=[];
+    r.phase='game';r.pending=null;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
     for(let i=r.players.length-1;i>0;i--){const j=crRand(i+1);[r.players[i],r.players[j]]=[r.players[j],r.players[i]];}
     r.turnIndex=0;
     r.players.forEach(x=>{Object.assign(x,crPlayer(x.id,x.name,x.bot));crDraw(r,x,9);});
