@@ -157,3 +157,39 @@ python tests/browser_test.py
 - `tests/`：エンジン・WebRTCモック・ブラウザ自動テスト
 
 開発用の画像・コード・テストは製作者向けです。ゲーム公開に必要なのは冒頭の7ファイルだけです。
+
+
+## 2026-10-13: カオス/インフレアップデート
+
+基本札を51種類から67種類へ拡張しました。等倍反射、2倍反射、身代わり転送、分散、完全無効、MP吸収、追撃、連鎖、HP交換、全体毒、MP強奪、全員の手札引き直しを追加しました。
+
+- **カード工房：フォームだけで作成** — 「🧩 入力だけでカード作成」を押すとPythonコードが空欄になり、基本効果のプルダウンだけでカードを保存できます。
+- **カード工房：Pythonコードでも作成** — 「🐍 コードで追加効果」を押し、フォーム設定に任意の `def on_play()` などを追加して保存できます。
+- 自作カードの威力と消費MPにはゲームバランス目的の固定上限を設けません。ただしJavaScriptで有限数として扱えること、CPU安全制限、HP/MP/所持金などのゲーム上限は別です。極端な威力での実ダメージはHP残量が限界です。
+- 反射・転送は防御カード使用時の特殊処理です。自動無限反射にならないよう、転送先に新しい防御ターンを発生させずダメージだけを与えます。
+
+## 大学・学校Wi-FiでP2Pが使えない場合（無料のWebSocket中継）
+
+WebRTCを禁止する学内ネットワークやファイアウォールでは、通常のPeerJS P2P通信は成立しないことがあります。WebRTCではなく **wss:// (443ポート)** で通信する中継方式を実装しました。
+
+Cloudflare Workers + SQLite-backed Durable Objectsの無料枠で実行できます。**このGitHubリポジトリにあるのはソースコードです。CloudflareのWorker自体は自動デプロイされていません。** Cloudflareアカウントから1回デプロイしてください。
+
+1. Cloudflareアカウントにログインし、このGitHubリポジトリをPCへcloneします。
+2. ターミナルで `cd relay-worker` を実行。
+3. `npx wrangler login` を実行してCloudflareへのアクセスを許可。
+4. `npx wrangler deploy` を実行。初回はWorkerとSQLite-backed Durable Objectが作成されます。
+5. 表示される `https://chaos-relic-relay.<サブドメイン>.workers.dev` の **https://をwss://にしたURL** を控えます。
+6. GitHub Pages版のゲームを開き、ヘッダーの「📡 通信」を押し、WSS中継URLを入力して保存（ページは再読み込みされます）。
+7. 友達にも同じWSS中継URLを登録してもらい、通常通り部屋コードで参加します。
+
+**注意事項**
+
+- このモードはWebRTCを使いませんが、ネットワーク側でWebSocket自体が禁止されていれば接続できません。
+- 各部屋のホストがブラウザを閉じると部屋も終了します。CloudflareはWebSocketメッセージを各参加者へ中継するだけで、対戦の審判はホストのブラウザ側です。
+- 自作カードによる不正や荒らしを防ぐ必要がある場合は、認証・レート制限・セキュリティルールを追加してください。身内の非公開ルームを想定しています。
+- Cloudflare無料枠には利用量の制限があり、将来的なサービス条件の変更にも影響されます。
+- 中継方式を使わないときは「📡 通信」→「P2Pに戻す」で解除してください。
+- [Cloudflare Durable Objectsガイド](https://developers.cloudflare.com/durable-objects/get-started/) / [WebSocketガイド](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
+
+中継ルーティングのローカル模擬テスト：`node tests/relay-worker.test.mjs`。
+
