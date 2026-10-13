@@ -383,6 +383,37 @@ function crSettle(r){
     break;
   }
 }
+
+const CR_SHOP={
+  mana:{cost:5,name:'魔力の瓶',icon:'💠'},
+  heal:{cost:7,name:'命の薬',icon:'💚'},
+  shield:{cost:9,name:'守護障壁',icon:'🛡️'},
+  draw:{cost:9,name:'追加ドロー',icon:'🎴'},
+  cleanse:{cost:6,name:'状態浄化',icon:'✨'},
+  sabotage:{cost:12,name:'魔力泥棒',icon:'🕵️'}
+};
+function crShop(r,p,item,targetId){
+  const offer=Object.prototype.hasOwnProperty.call(CR_SHOP,item)?CR_SHOP[item]:null;
+  if(!offer)throw Error('その商品は購入できません');
+  if(p.shopUsed)throw Error('購入は自分の手番ごとに1回です');
+  if(p.gold<offer.cost)throw Error('お金が足りません：必要 ¥'+offer.cost);
+  if(item==='heal'&&p.hp>=40)throw Error('HPは最大です');
+  if(item==='mana'&&p.mp>=99)throw Error('MPは最大です');
+  if(item==='shield'&&p.shield>=35)throw Error('バリアは最大です');
+  if(item==='draw'&&p.hand.length>=18)throw Error('持ち札がいっぱいです');
+  if(item==='cleanse'&&!Object.values(p.status).some(v=>v>0))throw Error('治す状態異常がありません');
+  const other=item==='sabotage'?r.players.find(x=>x.id===targetId&&crLive(x)&&x.id!==p.id):null;
+  if(item==='sabotage'&&!other)throw Error('魔力を盗む相手を選択してください');
+  p.gold-=offer.cost;p.shopUsed=true;
+  if(item==='mana')p.mp=Math.min(99,p.mp+10);
+  else if(item==='heal')crHeal(r,p,8,'買った薬で');
+  else if(item==='shield')p.shield=Math.min(35,p.shield+12);
+  else if(item==='draw')crDraw(r,p,3);
+  else if(item==='cleanse')p.status={poison:0,burn:0,freeze:0,curse:0,weak:0};
+  else if(item==='sabotage'){const n=Math.min(8,other.mp);other.mp-=n;p.mp=Math.min(99,p.mp+n);crLog(r,'🕵️ '+p.name+' は '+other.name+' からMP'+n+'奪った');}
+  crLog(r,'🪙 '+p.name+' は ¥'+offer.cost+' で「'+offer.name+'」を購入');
+  crVisual(r,'shop','購入！',p.name+'｜'+offer.name+' ¥'+offer.cost,offer.icon,item);
+}
 function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
   turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
@@ -424,7 +455,8 @@ function crApply(r,msg,p){
     if(msg.type==='defend')crDefend(r,p,Array.isArray(msg.cards)?msg.cards:[]);
     else{
       if(r.pending||r.players[r.turnIndex].id!==p.id)throw Error('今はあなたのターンではありません');
-      if(msg.type==='attack'){
+      if(msg.type==='shop'){crShop(r,p,msg.item,msg.target);
+      }else if(msg.type==='attack'){
         const cards=crSelect(p,msg.cards,'attack');
         if(!crCanPay(p,cards))throw Error('MPかコインが足りません');
         const target=r.players.find(x=>x.id===msg.target&&crLive(x)&&x.id!==p.id);if(!target)throw Error('攻撃相手を選択してください');
