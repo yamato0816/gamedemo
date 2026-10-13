@@ -43,7 +43,8 @@ function panel(){
  relay.append(button('中継URLを保存して選択','relay',mode==='relay'));box.append(relay);
  const firebase=section('3. Firebase Realtime Database（無料枠）','FirebaseのWebアプリ構成を貼り付けます。Anonymous認証とRealtime DatabaseのRules設定が必要です。');
  const saved=localStorage.getItem('cr_firebase_config');
- firebase.append(input('cr-firebase',saved?JSON.stringify(JSON.parse(saved),null,2):'','Firebase コンソールの firebaseConfig を貼り付け','textarea'));
+ firebase.append(input('cr-firebase',saved?JSON.stringify(JSON.parse(saved),null,2):'','Firebase コンソールの firebaseConfig を貼り付け（共通設定済みなら空欄可）','textarea'));
+ if(window.CHAOS_FIREBASE_CONFIG)firebase.append(add('p','hint','✓ サイト共通Firebase設定が検出されました。空欄でも使えます。'));
  const check=add('label','','');check.style.cssText='display:flex;gap:9px;align-items:flex-start;margin:10px 0;font-size:12px';
  const cb=document.createElement('input');cb.type='checkbox';cb.id='cr-longpoll';cb.checked=localStorage.getItem('cr_firebase_longpoll')==='1';
  const words=add('span','','大学Wi-Fi向け: FirebaseのLong Pollingを優先する（WebSocketを使用しません）');
@@ -90,8 +91,11 @@ document.addEventListener('click',ev=>{
    localStorage.setItem('cr_transport_mode','relay');location.reload();return;
   }
   if(mode==='firebase'){
-   const config=parseFirebase(document.getElementById('cr-firebase')?.value||'');
-   localStorage.setItem('cr_firebase_config',JSON.stringify(config));
+   const raw=document.getElementById('cr-firebase')?.value||'';
+   const config=raw.trim()?parseFirebase(raw):window.CHAOS_FIREBASE_CONFIG;
+   if(!config||!config.apiKey||!config.databaseURL)throw Error('Firebase構成情報を入力するか、サイト共通設定を登録してください');
+   if(raw.trim())localStorage.setItem('cr_firebase_config',JSON.stringify(config));
+   else localStorage.removeItem('cr_firebase_config');
    localStorage.setItem('cr_firebase_longpoll',document.getElementById('cr-longpoll')?.checked?'1':'0');
    localStorage.setItem('cr_transport_mode','firebase');location.reload();
   }
