@@ -169,8 +169,9 @@ class FirebaseOnline{
   const p=this.room.players.find(x=>x.id===id);
   if(!p)return;
   try{
-   if(['lobby','finished'].includes(this.room.phase))GameEngine.leave(this.room,id);
-   else p.lastSeen=0;
+   // Treat voluntary disconnection as surrender; otherwise an offline
+   // player can permanently block the turn after host migration.
+   GameEngine.leave(this.room,id);
    this._broadcast();
   }catch(err){this.onError(errorText(err))}
  }
