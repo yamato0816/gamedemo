@@ -221,6 +221,16 @@ function crRules(r,card,event,ctx){
     steal:(k,n)=>{if(!ctx.target||ctx.target===ctx.self)return;const v=Math.min(ctx.target[k],n);ctx.target[k]-=v;ctx.self[k]=crAdd(ctx.self[k],v)},
     boost_attack:(n)=>{if(r.pending&&r.pending.from===ctx.self.id)r.pending.damage=crSafeDamage(r.pending.damage+n);},
     boost_defense:(n)=>{if(ctx.guardBonus)ctx.guardBonus.value=crSafeDamage(ctx.guardBonus.value+n);},
+    multiply_attack:(factor)=>{if(r.pending&&r.pending.from===ctx.self.id)r.pending.damage=crSafeDamage(r.pending.damage*factor);},
+    discard:(who,type,n)=>crRecipients(r,who,ctx).forEach(p=>{
+      let left=n;const before=p.hand.length;
+      p.hand=p.hand.filter(c=>{if(left>0&&(type==='any'||c.type===type)){left--;return false;}return true;});
+      if(before!==p.hand.length)crLog(r,'🗑️ '+p.name+' の'+(type==='any'?'手札':type)+'を'+(before-p.hand.length)+'枚破棄！');
+    }),
+    swap_hands:()=>{if(ctx.target&&ctx.target!==ctx.self&&crLive(ctx.target)){
+      const hand=ctx.self.hand;ctx.self.hand=ctx.target.hand;ctx.target.hand=hand;
+      crLog(r,'🎴 '+ctx.self.name+' と '+ctx.target.name+' の手札を交換！');
+    }},
   });
   if(result.actions>0){
     crLog(r,`🐍 ${card.name}｜on_${event}：${result.actions}効果が発動！`);
