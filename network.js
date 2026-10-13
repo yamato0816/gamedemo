@@ -82,7 +82,7 @@ class Online{
     const a=msg.action;const actions=['publish','removeCard','bot','start','reset','leave','defend','attack','use','pray','trade','shop','pass'];
     if(!actions.includes(a.type))return;
     try{
-      const data=JSON.stringify(a);if(data.length>12000)throw Error('メッセージが大きすぎます');
+      const data=JSON.stringify(a);if(data.length>262144)throw Error('メッセージが大きすぎます');
       const p=this.room.players.find(p=>p.id===conn.peer);if(p)p.lastSeen=Date.now();
       GameEngine.apply(this.room,conn.peer,a);this._broadcast();
       if(a.type==='leave')conn.close();
