@@ -70,7 +70,10 @@ class FirebaseOnline{
           this.onClosed('別の参加者が新しいホストになりました。部屋に再参加してください');
           return;
         }
-        return meta.update({connected:true,lastHeartbeat:Date.now()}).then(()=>meta.onDisconnect().update({connected:false}));
+        return meta.update({connected:true,lastHeartbeat:Date.now()})
+          .then(()=>meta.onDisconnect().update({connected:false}))
+          .then(()=>this.participantRef?.set({name:this.name,joinedAt:Date.now()}))
+          .then(()=>this.participantRef?.onDisconnect().remove());
       }).catch(err=>this.onError('再接続: '+errorText(err)));
     }else if(this.participantRef){
       this.participantRef.set({name:this.name,joinedAt:Date.now()})
