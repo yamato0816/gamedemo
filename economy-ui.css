@@ -1,0 +1,38 @@
+/* CHAOS RELIC — deaths and the gold economy */
+.gf-market-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;margin:6px 0;border:2px solid #d3a657;border-radius:10px;background:linear-gradient(100deg,#fff6d5,#fffceb);color:#7a5121;}
+.gf-market-bar>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gf-market-bar b{font-size:15px;font-variant-numeric:tabular-nums}
+.gf-market-bar small{font-size:10px;white-space:normal;line-height:1.3}
+.gf-market-bar button{background:#c28a30;color:white;border:0;border-radius:10px;min-width:106px;min-height:38px;font-size:13px;font-weight:900;box-shadow:0 3px 0 #886023}
+.gf-market-bar button:disabled{background:#9e9b8e;box-shadow:none;opacity:.8}
+.gf-ko-player{filter:grayscale(.87);opacity:.73;background:#a7a8ad!important;border:2px solid #64616a!important;position:relative}
+.gf-ko-player b{text-decoration:line-through;text-decoration-thickness:1.5px}
+.gf-ko-tag{position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:11px!important;font-weight:900;background:#4b2430!important;color:white!important;padding:3px 7px;border-radius:999px;white-space:nowrap;z-index:4;box-shadow:0 1px 4px #0004}
+.gf-ko-player .gf-status-dots{display:none}
+.gf-death-banner{margin:7px 0;border:2px solid #7b3142;border-radius:12px;background:#30242d;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px}
+.gf-death-banner b{font-size:15px;color:#ffc8cd}.gf-death-banner span{font-size:10px;color:#e3d5d8}
+#gf-elimination-splash{position:fixed;inset:0;z-index:1300;pointer-events:none;display:grid;place-items:center}
+.gf-ko-veil{position:absolute;inset:0;background:rgba(22,9,20,.64);animation:gf-ko-veil-in .24s ease-out}
+.gf-ko-hero{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:linear-gradient(145deg,#4f1f36,#211622);border:3px solid #f499ad;padding:22px 28px;border-radius:19px;color:white;box-shadow:0 18px 70px #000b;max-width:94vw;animation:gf-ko-impact .35s cubic-bezier(.12,.85,.2,1.1)}
+.gf-ko-hero>span{font-size:64px;filter:drop-shadow(0 0 15px #fd7d9b)}.gf-ko-hero>strong{font-size:clamp(25px,7vw,42px);font-weight:1000;color:#ffe9e9;text-shadow:0 3px 6px #000}
+.gf-ko-hero>small{font-size:14px;color:#f3cbd2}.gf-ko-hero>b{font-size:13px;border-radius:99px;border:1px solid #ffa6b6;padding:4px 18px;background:#fff2}
+@keyframes gf-ko-veil-in{from{opacity:0}to{opacity:1}}
+@keyframes gf-ko-impact{0%{opacity:0;transform:scale(1.5) rotate(-4deg)}65%{opacity:1;transform:scale(.94)}100%{transform:scale(1)}}
+.gf-final-summary{max-width:760px;margin:12px auto;padding:22px;border-radius:19px;border:3px solid #dab865;background:linear-gradient(140deg,#fdf1cb,#fff9eb);text-align:center}
+.gf-final-summary h2{font-size:clamp(23px,5vw,36px);margin:4px 0;color:#85501a}.gf-final-summary p{font-size:13px;margin:4px 0 14px}
+.gf-final-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px}
+.gf-final-player{display:flex;align-items:center;gap:6px;padding:9px;border-radius:10px;border:1px solid #9a9fa1;background:#edf6e2;text-align:left}
+.gf-final-player span{font-size:20px}.gf-final-player b{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis}.gf-final-player small{margin-left:auto;font-size:10px;white-space:nowrap}
+.gf-final-player.dead{background:#c8c5c5;color:#6a555b;filter:grayscale(1)}
+#gf-market-dialog{position:fixed;inset:0;z-index:1600;display:grid;place-items:center}
+.gf-market-shade{position:absolute;inset:0;background:#0d2a2bb3}
+.gf-market-sheet{position:relative;background:#fffdf4;border:3px solid #d5af69;border-radius:18px;width:min(95vw,540px);max-height:90dvh;overflow-y:auto;padding:17px;box-shadow:0 18px 70px #0008;color:#403a2f}
+.gf-market-sheet header{display:flex;align-items:center;justify-content:space-between;gap:10px}.gf-market-sheet h2{font-size:20px;margin:0}.gf-market-sheet header button{background:#f2e8d2;border:0;border-radius:8px;font-size:24px;min-width:36px;min-height:36px}
+.gf-market-sheet p{font-size:12px;margin:6px 0 12px}.gf-market-sheet>small{display:block;font-size:11px;color:#86785b;line-height:1.5;margin-top:12px}
+.gf-market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.gf-market-item{display:flex;align-items:center;gap:8px;border:1px solid #e1c992;border-radius:10px;background:linear-gradient(120deg,#fff0c7,#fff8e8);min-height:71px;padding:8px;text-align:left;cursor:pointer}
+.gf-market-item:hover:not(:disabled){border-color:#b57e29;background:#ffefb0}.gf-market-item:disabled{opacity:.42;cursor:not-allowed}
+.gf-market-item>span{font-size:24px}.gf-market-item>b{flex:1;min-width:0;font-size:12px}.gf-market-item small{font-size:10px;color:#746847;font-weight:400;display:block;margin-top:3px}.gf-market-item>strong{font-size:14px;color:#9b6120;white-space:nowrap}
+@media(max-width:600px){.gf-market-bar{padding:6px 9px}.gf-market-bar small{font-size:9px}.gf-ko-tag{font-size:10px!important;padding:2px 5px}.gf-death-banner{flex-direction:column;align-items:flex-start;gap:1px}.gf-death-banner b{font-size:13px}.gf-market-item{min-height:61px}.gf-market-sheet{padding:13px}.gf-final-list{grid-template-columns:1fr 1fr}}
+@media(max-width:340px){.gf-market-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.gf-ko-veil,.gf-ko-hero{animation:none}}
