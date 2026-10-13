@@ -123,8 +123,11 @@ class FirebaseOnline{
     if(!msg||typeof msg.action!=='object'||Array.isArray(msg.action)||JSON.stringify(msg.action).length>12000)throw Error('無効な操作');
     GameEngine.apply(this.room,id,msg.action);
     await this._broadcast();
-   }catch(e){this.onError(safeName(person.name)+' の操作: '+errorText(e));}
-   finally{await snap.ref.remove().catch(()=>{});}
+   }catch(e){
+     const message=errorText(e);
+     this.onError(safeName(person.name)+' の操作: '+message);
+     await this.roomRef.child('errors/'+id).set({message:message.slice(0,150)}).catch(()=>{});
+   }finally{await snap.ref.remove().catch(()=>{});}
   }).catch(e=>this.onError(errorText(e)));};
   this._trackGuest(id,actionRef,listener);
   await this.roomRef.child('errors/'+id).remove();
@@ -187,7 +190,10 @@ class FirebaseOnline{
      finish();
     });
     this._listen(errorRef,'value',snap=>{
-     if(snap.val()?.message)finish(Error(snap.val().message));
+     const message=snap.val()?.message;
+     if(!message)return;
+     if(!done)finish(Error(message));
+     else this.onError('操作: '+message);
     });
     let sawRoom=true;
     this._listen(this.roomRef.child('meta'),'value',snap=>{
