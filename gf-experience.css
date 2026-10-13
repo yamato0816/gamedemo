@@ -84,3 +84,20 @@
 @media(max-width:359px){.gf-compact-duel>div>b{font-size:10px}.gf-compact-controls>button{font-size:10px}.gf-small-score small{font-size:8px}}
 @media(max-height:585px) and (max-width:729px){.gf-compact-field{overflow:auto}.gf-announcement{min-height:48px}.gf-compact-duel{min-height:45px}.gf-compact-duel>div{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.gf-battle-fx.gf-v2-fx *, .gf-god-icon{animation:none!important}}
+
+
+/* Phenomena and guardians each retain a distinct visual signature. */
+.gf-battle-fx.gf-v2-fx.meteor{background:radial-gradient(circle at top,#f49a55,#63334d 62%,#272a53);border-color:#ffc875}
+.gf-battle-fx.gf-v2-fx.blessing{background:radial-gradient(circle,#fff8b8,#75b773 68%,#2f8571);border-color:#fff1af}
+.gf-battle-fx.gf-v2-fx.fog{background:radial-gradient(circle,#dfe7ee,#728e9f,#46476a);filter:drop-shadow(0 0 24px #dfefff)}
+.gf-battle-fx.gf-v2-fx.silence{background:radial-gradient(circle,#8e8cba,#272842);box-shadow:0 0 30px #393a5f}
+.gf-battle-fx.gf-v2-fx.mana_rain{background:radial-gradient(circle,#82e8f9,#296da0,#283761)}
+.gf-battle-fx.gf-v2-fx.earthquake{background:radial-gradient(circle,#e8ad73,#83564a,#393743);animation:gf-ground-shake .38s linear 3}
+.gf-battle-fx.gf-v2-fx.exchange{background:radial-gradient(circle,#d4a2f9,#5d57a8,#30366d)}
+.gf-battle-fx.gf-v2-fx.turtle{background:radial-gradient(circle,#a4e5bd,#327e78,#23565a)}.gf-battle-fx.gf-v2-fx.turtle .gf-fx-emoji{animation:gf-shield-pulse .6s alternate infinite}
+.gf-battle-fx.gf-v2-fx.storm{background:radial-gradient(circle,#c7edff,#4b7bbd,#283763)}.gf-battle-fx.gf-v2-fx.storm .gf-fx-emoji{animation:gf-lightning .22s steps(2) infinite}
+.gf-battle-fx.gf-v2-fx.sprite{background:radial-gradient(circle,#ffe2f8,#b46ca7,#6b6f9c)}.gf-battle-fx.gf-v2-fx.muse{background:radial-gradient(circle,#a5c0fa,#4d5799,#34345f)}
+@keyframes gf-ground-shake{25%{transform:translate(-53%,-50%) rotate(-2deg)}75%{transform:translate(-47%,-50%) rotate(2deg)}}
+@keyframes gf-shield-pulse{to{transform:scale(1.17);filter:drop-shadow(0 0 20px #bdf9d7)}}
+@keyframes gf-lightning{50%{opacity:.46;filter:drop-shadow(0 0 28px #f8f5a5)}}
+@media(prefers-reduced-motion:reduce){.gf-battle-fx.gf-v2-fx{animation:none!important}}
