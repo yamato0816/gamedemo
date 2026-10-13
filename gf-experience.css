@@ -105,3 +105,16 @@
 /* Communication settings must remain accessible on phones despite generic hidden header links. */
 .transport-btn{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 @media(max-width:730px){.transport-btn{display:inline-flex!important;font-size:0!important;padding:6px!important;min-width:32px}.transport-btn::before{content:'📡';font-size:19px}.gf-dict-header{display:none!important}}
+
+
+/* Readable category stamp, always in the top-left of each compact card. */
+.gf-compact-card{position:relative;isolation:isolate;}
+.gf-card-type-icon{position:absolute;z-index:4;left:1px;top:1px;width:19px;height:19px;display:grid;place-items:center;border-radius:4px 0 6px 0;background:#306c54;color:white;font:900 12px/1 system-ui,sans-serif;box-shadow:0 1px 2px #0003;pointer-events:none}
+.gf-compact-card.attack .gf-card-type-icon{background:#b9553b}
+.gf-compact-card.defense .gf-card-type-icon{background:#236d9b}
+.gf-compact-card.magic .gf-card-type-icon{background:#7447aa}
+.gf-compact-card.item .gf-card-type-icon{background:#ac5078}
+.gf-compact-card.guardian .gf-card-type-icon{background:#947023}
+.gf-compact-card.omen .gf-card-type-icon{background:#4f659a}
+.gf-compact-card.picked .gf-card-type-icon{box-shadow:0 0 0 2px #ffd553}
+@media(max-width:729px){.gf-card-type-icon{width:16px;height:16px;font-size:10px;left:0;top:0}}
