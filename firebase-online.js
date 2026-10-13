@@ -62,7 +62,9 @@ class FirebaseOnline{
    this.onInfo(this.ready?'Firebaseで接続中':'Firebaseに接続しました');
    if(this.ready){
     if(this.isHost){
-      this.roomRef?.onDisconnect().remove().catch(err=>this.onError('切断監視: '+errorText(err)));
+      const meta=this.roomRef?.child('meta');
+      meta?.update({connected:true,lastHeartbeat:Date.now()}).catch(err=>this.onError('再接続: '+errorText(err)));
+      meta?.onDisconnect().update({connected:false}).catch(err=>this.onError('切断監視: '+errorText(err)));
     }else if(this.participantRef){
       this.participantRef.set({name:this.name,joinedAt:Date.now()})
        .then(()=>this.participantRef?.onDisconnect().remove())
@@ -86,7 +88,10 @@ class FirebaseOnline{
    }
    if(!this.code)throw Error('部屋コードが重複しました。もう一度作成してください');
    this.roomRef=this.db.ref('rooms/'+this.code);
-   await this.roomRef.onDisconnect().remove();
+   // Never delete a room on a momentary Wi-Fi disconnection: this caused the
+   // entire match to disappear on campuses with unstable WebSockets.
+   await this.roomRef.child('meta').update({connected:true,lastHeartbeat:Date.now()});
+   await this.roomRef.child('meta').onDisconnect().update({connected:false});
    this._listen(this.roomRef.child('meta'),'value',snap=>{
      if(this.ready&&!snap.exists()){
        this.ready=false;clearInterval(this.clock);this.onClosed('Firebaseの部屋が閉じられました。新しい部屋を作成してください');
@@ -118,7 +123,9 @@ class FirebaseOnline{
   const id=snap.key,person=snap.val();
   if(!person||typeof person.name!=='string')return;
   try{
-   GameEngine.join(this.room,id,safeName(person.name));
+   const old=this.room.players.find(p=>p.id===id);
+   if(old)old.lastSeen=Date.now();
+   else GameEngine.join(this.room,id,safeName(person.name));
   }catch(e){
    await this.roomRef.child('errors/'+id).set({message:String(e.message).slice(0,150)});
    return;
@@ -131,7 +138,7 @@ class FirebaseOnline{
    if(!this.ready||!this.members.has(id))return;
    const msg=snap.val();
    try{
-    if(!msg||typeof msg.action!=='object'||Array.isArray(msg.action)||JSON.stringify(msg.action).length>12000)throw Error('無効な操作');
+    if(!msg||typeof msg.action!=='object'||Array.isArray(msg.action)||JSON.stringify(msg.action).length>262144)throw Error('無効な操作');
     GameEngine.apply(this.room,id,msg.action);
     await this._broadcast();
    }catch(e){
@@ -223,7 +230,7 @@ class FirebaseOnline{
    GameEngine.apply(this.room,this.id,action);
    this._broadcast();
   }else{
-   if(JSON.stringify(action).length>12000)throw Error('操作が大きすぎます');
+   if(JSON.stringify(action).length>262144)throw Error('操作が大きすぎます');
    this.roomRef.child('actions/'+this.id).push().set({action,createdAt:Date.now()}).catch(err=>this.onError('送信失敗: '+errorText(err)));
   }
  }
@@ -234,7 +241,11 @@ class FirebaseOnline{
   for(const fn of this.actionRefs.values())try{fn()}catch{}
   this.actionRefs.clear();this.members.clear();
   const ref=this.isHost?this.roomRef:this.participantRef;
-  if(ref){ref.onDisconnect().cancel().catch(()=>{});ref.remove().catch(()=>{});}
+  if(ref){
+    const presence=this.isHost?this.roomRef?.child('meta'):this.participantRef;
+    presence?.onDisconnect().cancel().catch(()=>{});
+    ref.remove().catch(()=>{});
+  }
   this.roomRef=null;this.participantRef=null;this.room=null;this.ready=false;this.isHost=false;
  }
 }
