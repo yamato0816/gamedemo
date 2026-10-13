@@ -165,7 +165,8 @@ function crPhenomenon(r,key){
   if(key==='earthquake')crLiving(r).forEach(p=>crHit(r,p,3,'地鳴りで'));
   r.phenomenon={kind:key,round:r.round};
   const label={blessing:'天の祝福',meteor:'流星雨',exchange:'資源の逆転',silence:'静寂',fog:'深い霧',mana_rain:'魔力の雨',earthquake:'地鳴り'}[key]||'未知の現象';
-  crVisual(r,'omen','超常現象！','「'+label+'」が発生！ 全員に影響します','🌌',key);
+  const specialIcon={blessing:'✨',meteor:'☄️',exchange:'🌀',silence:'🤫',fog:'🌫️',mana_rain:'💧',earthquake:'🌋'}[key]||'🌌';
+  crVisual(r,'omen','超常現象！','「'+label+'」が発生！ 全員に影響します',specialIcon,key);
 }
 function crRules(r,card,event,ctx){
   if(!card.script)return;
@@ -273,7 +274,8 @@ function crDefend(r,p,ids){
   const reflected=pending.damage<=block&&cards.some(c=>c.effect==='reflect');
   const counter=pending.damage<=block&&cards.some(c=>c.effect==='counter');
   const title=reflected?'跳ね返した！':counter?'反撃！':dealt===0?'無事！':dealt+'ダメージ！';
-  const detail=p.name+'｜'+(cards.length?cards.map(c=>c.name).join('＋'):'防御なし')+'｜攻'+pending.damage+' / 守'+block;
+  const afflicted=dealt>0?pending.effects.filter(x=>['poison','burn','freeze'].includes(x)).map(x=>({poison:'毒',burn:'炎上',freeze:'凍結'}[x])).join('・'):'';
+  const detail='攻:'+pending.cards.map(c=>c.name).join('＋')+' / 防:'+(cards.length?cards.map(c=>c.name).join('＋'):'なし')+'｜攻'+pending.damage+' / 守'+block+(afflicted?'｜'+afflicted:'');
   crVisual(r,reflected?'reflect':dealt===0?'safe':'damage',title,detail,reflected?'↩️':dealt===0?'🛡️':'💥');
   r.pending=null;if(!crWinner(r))crNext(r);
 }
