@@ -134,13 +134,13 @@ function crStatus(r,p,key,n){
 }
 function crValidRules(raw){
   if(raw==null)return [];
-  if(!Array.isArray(raw)||raw.length>128)throw Error('処理保護：効果ルールは1枚128個までです');
+  if(!Array.isArray(raw)||raw.length>256)throw Error('処理保護：効果ルールは1枚128個までです');
   let total=0;
   return raw.map(function(x){
     if(!x||!CR_EVENTS.includes(x.event))throw Error('無効なイベント');
     if(!Array.isArray(x.actions)||x.actions.length<1||x.actions.length>128)throw Error('処理保護：イベントの効果は128個までです');
     total+=x.actions.length;
-    if(total>256)throw Error('処理保護：1枚の処理は256個までです');
+    if(total>1024)throw Error('処理保護：1枚の処理は256個までです');
     const rule={event:x.event,chance:crClamp(x.chance===undefined?1:x.chance,0,1),if_hp_below:x.if_hp_below==null?null:crInt(x.if_hp_below,1),if_target_status:x.if_target_status==null?null:String(x.if_target_status)};
     if(rule.if_target_status!==null&&!CR_STATUSES.includes(rule.if_target_status))throw Error('条件の状態異常が不正です');
     rule.actions=x.actions.map(function(a){
@@ -159,13 +159,15 @@ function crValidRules(raw){
   });
 }
 function crValidCard(raw,author){
-  if(!raw||!CR_TYPES.includes(raw.type))throw Error('カードの種類が不正です');
-  const name=crText(raw.name,16);if(!name)throw Error('カード名は必須です');
+  if(!raw)throw Error('カードがありません');
+  const compiled=typeof raw.script==='string'&&raw.script.trim()?PyCards.compile(raw.script):null;
+  raw={...raw,...(compiled?.meta||{})};
+  if(!CR_TYPES.includes(raw.type))throw Error('カードの種類が不正です');
+  const name=crText(raw.name,64);if(!name)throw Error('カード名は必須です');
   const type=raw.type;
   const created={id:'custom-'+crUid(),name,type,power:crHuge(raw.power),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
     element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crHuge(raw.cost),resource:raw.resource==='gold'?'gold':'mp',
-    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',6),author:crText(author,14),description:crText(raw.description,100),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,3500):'',program:null};
-  if(created.script)created.program=PyCards.compile(created.script);
+    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',16),author:crText(author,32),description:crText(raw.description,8000),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,30000):'',program:compiled};
   return created;
 }
 function crCanPay(p,cards){return cards.reduce((n,c)=>n+c.cost*(c.resource==='mp'?1:0),0)<=p.mp&&cards.reduce((n,c)=>n+c.cost*(c.resource==='gold'?1:0),0)<=p.gold;}
@@ -202,7 +204,7 @@ function crPhenomenon(r,key){
 function crRules(r,card,event,ctx){
   if(!card.script)return;
   try{
-  const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0,incomingDamage:ctx.incomingDamage||0,ownDefenseCount:ctx.ownDefenseCount}, {
+  const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,card,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0,incomingDamage:ctx.incomingDamage||0,ownDefenseCount:ctx.ownDefenseCount}, {
     damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHit(r,p,n,'自作カードで')),
     heal:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHeal(r,p,n,'自作カードで')),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
@@ -455,6 +457,7 @@ function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer
   turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
   if(msg.type==='publish'){
+    if(JSON.stringify(msg.card||{}).length>131072)throw Error('カードJSONは128KiB以内にしてください');
     if(r.phase!=='lobby')throw Error('対戦前に追加してください');
     const card=crValidCard(msg.card,p.name);card.owner=p.id;r.cards.push(card);crLog(r,`🎨 ${p.name} が「${card.name}」を追加`);
   }else if(msg.type==='removeCard'){
