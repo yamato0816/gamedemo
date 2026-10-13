@@ -98,7 +98,7 @@ function compile(code){
   }
   const handlers={};
   while(at<lines.length){const cur=lines[at++];if(cur.indent!==0)fail('関数の定義は左端に書いてください',cur.line);
-    const m=cur.text.match(/^def on_(play|hit|defend|block|turn_start)\(\):$/);
+    const m=cur.text.match(/^def on_(play|hit|defend|block|guard|turn_start)\(\):$/);
     if(!m)fail('def on_play(): などのイベント関数だけ定義できます',cur.line);
     if(handlers[m[1]])fail('同じイベントの関数は1つまでです',cur.line);
     handlers[m[1]]=child(cur);
