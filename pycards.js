@@ -129,8 +129,8 @@ function run(program,event,ctx,actions){
   const stmts=program.handlers?.[event];if(!stmts)return {actions:0};
   const vars=Object.create(null);let steps=0,count=0;
   // Snapshots, never expose live mutable game objects or the Firebase view.
-  const cardView=c=>({name:String(c.name||''),type:String(c.type||''),effect:String(c.effect||''),power:Number(c.power)||0,cost:Number(c.cost)||0,element:String(c.element||''),emoji:String(c.emoji||'')});
-  const playerView=p=>p?({name:String(p.name||''),hp:Number(p.hp)||0,mp:Number(p.mp)||0,gold:Number(p.gold)||0,shield:Number(p.shield)||0,status:{...(p.status||{})},hand:Array.isArray(p.hand)?p.hand.map(cardView):[]}):null;
+  const cardView=c=>({name:String(c.name||''),description:String(c.description||''),type:String(c.type||''),effect:String(c.effect||''),power:Number(c.power)||0,cost:Number(c.cost)||0,resource:String(c.resource||'mp'),weight:Number(c.weight)||0,element:String(c.element||''),emoji:String(c.emoji||'')});
+  const playerView=p=>p?({id:String(p.id||''),name:String(p.name||''),hp:Number(p.hp)||0,mp:Number(p.mp)||0,gold:Number(p.gold)||0,shield:Number(p.shield)||0,status:{...(p.status||{})},hand:Array.isArray(p.hand)?p.hand.map(cardView):[]}):null;
   vars.self=playerView(ctx.self);vars.target=playerView(ctx.target);
   vars.card=cardView(ctx.card||{});
   vars.players=(ctx.r?.players||[]).map(playerView);
@@ -182,7 +182,7 @@ function run(program,event,ctx,actions){
     if(node.k==='var'){if(!Object.hasOwn(vars,node.name))fail('未定義の変数: '+node.name);return vars[node.name];}
     if(node.k==='attr'){
       const object=evaluate(node.a);
-      const keys=['name','type','effect','power','cost','element','emoji','hp','mp','gold','shield','status','hand','length','poison','burn','freeze','curse','weak'];
+      const keys=['id','name','description','type','effect','power','cost','resource','weight','element','emoji','hp','mp','gold','shield','status','hand','length','poison','burn','freeze','curse','weak'];
       if(!keys.includes(node.name))fail('参照できない属性: '+node.name);
       if(object==null)return null;
       if(Array.isArray(object)&&node.name==='length')return object.length;
