@@ -78,12 +78,14 @@ const CR_PHENOMENA=['random','blessing','meteor','exchange','silence','fog','man
 const CR_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const crUid=()=>crypto.randomUUID().replace(/-/g,'').slice(0,20);
 const crRand=n=>Math.floor(Math.random()*n);
-const crClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
-const crInt=(v,a,b)=>Math.round(crClamp(v,a,b));
+const CR_MAX=Number.MAX_SAFE_INTEGER; // Numeric precision safety, NOT a gameplay balance ceiling.
+const crClamp=(v,a=0,b=CR_MAX)=>{const n=Number(v);return Math.max(a,Math.min(b,Number.isFinite(n)?n:0));};
+const crInt=(v,a=0,b=CR_MAX)=>Math.round(crClamp(v,a,b));
+const crAdd=(v,change)=>crInt(Number(v)+Number(change),0,CR_MAX);
 const crText=(v,n=24)=>String(v||'').replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,n);
 const crLive=p=>p&&p.hp>0;
-const crHuge=v=>{const n=Number(v??0);if(!Number.isFinite(n)||n<0)throw Error('0以上の有限の数値を入力してください');return Math.round(n);};
-const crSafeDamage=v=>Number.isFinite(v)?Math.max(0,v):Number.MAX_SAFE_INTEGER;
+const crHuge=v=>{const n=Number(v??0);if(!Number.isSafeInteger(n)||n<0)throw Error('数値は0〜9007199254740991の安全な整数で入力してください');return n;};
+const crSafeDamage=v=>crInt(v,0,CR_MAX);
 
 function crLog(r,msg){r.log.unshift(msg);r.log.length=Math.min(r.log.length,24);}
 function crVisual(r,kind,title,detail,icon='✨',variant=''){
@@ -102,8 +104,17 @@ function crPick(r){
   for(const card of pool){hit-=card.weight;if(hit<0)return Object.assign({},card,{uid:crUid()});}
   return Object.assign({},pool[0],{uid:crUid()});
 }
-function crDraw(r,p,n){for(let i=0;i<n&&p.hand.length<18;i++)p.hand.push(crPick(r));}
-function crHeal(r,p,n,why){const v=Math.min(40-p.hp,crInt(n,0,40));p.hp+=v;if(v)crLog(r,`💚 ${p.name} ${why||'回復'} +${v}HP`);return v;}
+function crDraw(r,p,n){
+  // Uncapped total hand size; limit the number of allocations in a single action.
+  const count=Math.min(crSafeDamage(n),64);
+  for(let i=0;i<count;i++)p.hand.push(crPick(r));
+}
+function crHeal(r,p,n,why){
+  const v=Math.min(CR_MAX-p.hp,crSafeDamage(n));
+  p.hp=crAdd(p.hp,v);
+  if(v)crLog(r,`💚 ${p.name} ${why||'回復'} +${v}HP`);
+  return v;
+}
 function crHit(r,p,n,why){
   if(!crLive(p))return 0;
   let d=crSafeDamage(Number(n));
@@ -118,29 +129,28 @@ function crHit(r,p,n,why){
 }
 function crStatus(r,p,key,n){
   if(!CR_STATUSES.includes(key))return;
-  const limit=key==='freeze'?2:5;
-  p.status[key]=Math.max(p.status[key]||0,crInt(n,1,limit));
+  p.status[key]=Math.max(p.status[key]||0,crInt(n,1));
   crLog(r,`🧿 ${p.name} に${{poison:'毒',burn:'炎上',freeze:'凍結',curse:'呪い',weak:'弱体化'}[key]}！`);
 }
 function crValidRules(raw){
   if(raw==null)return [];
-  if(!Array.isArray(raw)||raw.length>8)throw Error('効果ルールは最大8個です');
+  if(!Array.isArray(raw)||raw.length>128)throw Error('処理保護：効果ルールは1枚128個までです');
   let total=0;
   return raw.map(function(x){
     if(!x||!CR_EVENTS.includes(x.event))throw Error('無効なイベント');
-    if(!Array.isArray(x.actions)||x.actions.length<1||x.actions.length>6)throw Error('各イベントは1〜6アクションです');
+    if(!Array.isArray(x.actions)||x.actions.length<1||x.actions.length>128)throw Error('処理保護：イベントの効果は128個までです');
     total+=x.actions.length;
-    if(total>24)throw Error('アクションは合計24個までです');
-    const rule={event:x.event,chance:crClamp(x.chance===undefined?1:x.chance,0,1),if_hp_below:x.if_hp_below==null?null:crInt(x.if_hp_below,1,50),if_target_status:x.if_target_status==null?null:String(x.if_target_status)};
+    if(total>256)throw Error('処理保護：1枚の処理は256個までです');
+    const rule={event:x.event,chance:crClamp(x.chance===undefined?1:x.chance,0,1),if_hp_below:x.if_hp_below==null?null:crInt(x.if_hp_below,1),if_target_status:x.if_target_status==null?null:String(x.if_target_status)};
     if(rule.if_target_status!==null&&!CR_STATUSES.includes(rule.if_target_status))throw Error('条件の状態異常が不正です');
     rule.actions=x.actions.map(function(a){
       if(!a||!CR_OPS.includes(a.op))throw Error('未知の効果 '+(a&&a.op));
       const op=a.op;
       const who=['self','target','all_enemies','everyone','random_enemy'].includes(a.who)?a.who:'self';
-      const obj={op,who,n:crInt(a.n,0,20)};
+      const obj={op,who,n:crInt(a.n,0)};
       if(op==='status'){if(!CR_STATUSES.includes(a.key))throw Error('不明な状態異常');obj.key=a.key;}
       if(op==='resource'||op==='steal'){if(!['mp','gold'].includes(a.key))throw Error('不明な資源');obj.key=a.key;}
-      if(op==='summon'){if(!CR_GUARDIANS.includes(a.key))throw Error('不明な守護神');obj.key=a.key;obj.n=crInt(a.n||3,1,5);}
+      if(op==='summon'){if(!CR_GUARDIANS.includes(a.key))throw Error('不明な守護神');obj.key=a.key;obj.n=crInt(a.n||3,1);}
       if(op==='phenomenon'){if(!CR_PHENOMENA.includes(a.key))throw Error('不明な超常現象');obj.key=a.key;}
       if(op==='swap_hp')obj.who='target';
       return obj;
@@ -154,7 +164,7 @@ function crValidCard(raw,author){
   const type=raw.type;
   const created={id:'custom-'+crUid(),name,type,power:crHuge(raw.power),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
     element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crHuge(raw.cost),resource:raw.resource==='gold'?'gold':'mp',
-    weight:Math.max(1,Math.min(10000,crHuge(raw.weight||3))),emoji:crText(raw.emoji||'✨',6),author:crText(author,14),description:crText(raw.description,100),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,3500):'',program:null};
+    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',6),author:crText(author,14),description:crText(raw.description,100),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,3500):'',program:null};
   if(created.script)created.program=PyCards.compile(created.script);
   return created;
 }
@@ -179,10 +189,10 @@ function crPhenomenon(r,key){
   crLog(r,`🌌 超常現象「${{blessing:'天の祝福',meteor:'流星雨',exchange:'資源の逆転',silence:'静寂',fog:'深い霧',mana_rain:'魔力の雨',earthquake:'地鳴り'}[key]}」発生！`);
   if(key==='blessing')crLiving(r).forEach(p=>crHeal(r,p,5,'天の祝福で'));
   if(key==='meteor')crLiving(r).forEach(p=>crHit(r,p,4,'流星雨で'));
-  if(key==='exchange')crLiving(r).forEach(p=>{const m=p.mp;p.mp=crInt(p.gold,0,99);p.gold=crInt(m,0,99);});
+  if(key==='exchange')crLiving(r).forEach(p=>{const m=p.mp;p.mp=crInt(p.gold);p.gold=crInt(m);});
   if(key==='silence')crLiving(r).forEach(p=>{p.mp=Math.max(0,p.mp-3);});
   if(key==='fog')crLiving(r).forEach(p=>crStatus(r,p,'weak',2));
-  if(key==='mana_rain')crLiving(r).forEach(p=>{p.mp=Math.min(99,p.mp+5);});
+  if(key==='mana_rain')crLiving(r).forEach(p=>{p.mp=crAdd(p.mp,5);});
   if(key==='earthquake')crLiving(r).forEach(p=>crHit(r,p,3,'地鳴りで'));
   r.phenomenon={kind:key,round:r.round};
   const label={blessing:'天の祝福',meteor:'流星雨',exchange:'資源の逆転',silence:'静寂',fog:'深い霧',mana_rain:'魔力の雨',earthquake:'地鳴り'}[key]||'未知の現象';
@@ -196,13 +206,13 @@ function crRules(r,card,event,ctx){
     damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHit(r,p,n,'自作カードで')),
     heal:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHeal(r,p,n,'自作カードで')),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
-    shield:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{p.shield=crInt(p.shield+n,0,35)}),
-    resource:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>{p[k]=crInt(p[k]+n,0,99)}),
+    shield:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{p.shield=crAdd(p.shield,n)}),
+    resource:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>{p[k]=crAdd(p[k],n)}),
     draw:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crDraw(r,p,n)),
     cleanse:(who)=>crRecipients(r,who,ctx).forEach(p=>{p.status={poison:0,burn:0,freeze:0,curse:0,weak:0}}),
     summon:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>{p.guardian={kind:k,turns:n,script:card.script,program:card.program}}),
     phenomenon:(k)=>crPhenomenon(r,k),
-    steal:(k,n)=>{if(!ctx.target||ctx.target===ctx.self)return;const v=Math.min(ctx.target[k],n);ctx.target[k]-=v;ctx.self[k]=crInt(ctx.self[k]+v,0,99)},
+    steal:(k,n)=>{if(!ctx.target||ctx.target===ctx.self)return;const v=Math.min(ctx.target[k],n);ctx.target[k]-=v;ctx.self[k]=crAdd(ctx.self[k],v)},
     boost_attack:(n)=>{if(r.pending&&r.pending.from===ctx.self.id)r.pending.damage=crSafeDamage(r.pending.damage+n);},
     boost_defense:(n)=>{if(ctx.guardBonus)ctx.guardBonus.value=crSafeDamage(ctx.guardBonus.value+n);},
   });
@@ -223,7 +233,7 @@ function crStartTurn(r){
     const g=p.guardian;
     if(g.kind==='sprite')crHeal(r,p,3,'妖精の力で');
     if(g.script)crRules(r,{script:g.script,program:g.program,name:'守護神'},'turn_start',{self:p,target:crLiving(r).find(x=>x.id!==p.id)||p});
-    if(g.kind==='muse'){p.mp=Math.min(99,p.mp+3);crLog(r,`🌙 ${p.name} MP +3`);}
+    if(g.kind==='muse'){p.mp=crAdd(p.mp,3);crLog(r,`🌙 ${p.name} MP +3`);}
     g.turns--;if(g.turns<=0){p.guardian=null;crLog(r,`👼 ${p.name} の守護神が去った`);}
   }
   if(p.status.poison){p.status.poison--;crHit(r,p,2,'毒で');}
@@ -299,7 +309,7 @@ function crDefend(r,p,ids){
       victims.forEach(x=>crHit(r,x,Math.ceil(incoming/Math.max(1,victims.length)),special.name+'の分散で'));
       redirected=victims;trick='攻撃を分散！';
     }else if(special.effect==='absorb'){
-      const gained=Math.min(99-p.mp,Math.ceil(incoming/2));p.mp+=gained;trick='魔力を吸収！';
+      const gained=Math.ceil(incoming/2);p.mp=crAdd(p.mp,gained);trick='魔力を吸収！';
     }else trick='完全無効！';
     crLog(r,'🌟 '+p.name+'｜'+special.name+'：'+trick+(redirected.length?' → '+redirected.map(x=>x.name).join('・'):''));
   }else dealt=crHit(r,p,Math.max(0,incoming-block),'攻撃されて');
@@ -321,7 +331,7 @@ function crDefend(r,p,ids){
       if(e==='splash')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(2,Math.ceil(dealt/3)),'巻き添えで'));
       if(e==='chain')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(1,Math.floor(dealt/2)),'連鎖で'));
       if(e==='double_hit')crHit(r,p,Math.max(1,Math.floor(dealt*.7)),'追撃で');
-      if(e==='siphon'){const stolen=Math.min(p.mp,Math.max(1,Math.floor(dealt/2)));p.mp-=stolen;from.mp=Math.min(99,from.mp+stolen);}
+      if(e==='siphon'){const stolen=Math.min(p.mp,Math.max(1,Math.floor(dealt/2)));p.mp-=stolen;from.mp=crAdd(from.mp,stolen);}
     }
     pending.cards.forEach(c=>crRules(r,c,'hit',{self:from,target:p,damageDealt:dealt}));
     if(p.guardian&&p.guardian.kind==='storm')crHit(r,from,2,'雷神の反撃で');
@@ -345,14 +355,14 @@ function crUse(r,p,card,targetId){
   if(['poison','burn','freeze','curse'].includes(e))crStatus(r,other,e,e==='freeze'?1:3);
   if(e==='swap_hp'&&other){const h=p.hp;p.hp=other.hp;other.hp=h;crLog(r,'⚖️ '+p.name+' と '+other.name+' のHP交換！');}
   if(e==='mass_poison')crLiving(r).filter(x=>x.id!==p.id).forEach(x=>crStatus(r,x,'poison',4));
-  if(e==='steal_mp'&&other){const n=Math.min(other.mp,Math.max(1,card.power));other.mp-=n;p.mp=Math.min(99,p.mp+n);crLog(r,'🫳 '+p.name+' はMP'+n+'奪った！');}
+  if(e==='steal_mp'&&other){const n=Math.min(other.mp,Math.max(1,card.power));other.mp-=n;p.mp=crAdd(p.mp,n);crLog(r,'🫳 '+p.name+' はMP'+n+'奪った！');}
   if(e==='scramble'){for(const x of crLiving(r)){x.hand=[];crDraw(r,x,9);}crLog(r,'🎴 全員の手札が入れ替わった！');}
   if(e==='hex'){if(Math.random()<.5)crHit(r,other,card.power+4,'呪いで');else crHeal(r,other,5,'まさかの回復で');}
   if(e==='heal')crHeal(r,p,card.power,'カードで');
-  if(e==='mana'||e==='gold'){p[e]=Math.min(99,p[e]+card.power);crLog(r,`💫 ${p.name} ${e} +${card.power}`);}
-  if(e==='draw'){crDraw(r,p,Math.min(18,card.power));crLog(r,`🃏 ${p.name} が${card.power}枚引いた`);}
+  if(e==='mana'||e==='gold'){p[e]=crAdd(p[e],card.power);crLog(r,`💫 ${p.name} ${e} +${card.power}`);}
+  if(e==='draw'){crDraw(r,p,card.power);crLog(r,`🃏 ${p.name} が${card.power}枚引いた`);}
   if(e==='cleanse'){p.status={poison:0,burn:0,freeze:0,curse:0,weak:0};crLog(r,`🌱 ${p.name} の状態異常解除`);}
-  if(e==='lottery'){const n=Math.random()<.55?card.power:-Math.ceil(card.power/2);p.gold=crInt(p.gold+n,0,99);crLog(r,`🎰 ${p.name} コイン ${n>0?'+':''}${n}`);}
+  if(e==='lottery'){const n=Math.random()<.55?card.power:-Math.ceil(card.power/2);p.gold=crAdd(p.gold,n);crLog(r,`🎰 ${p.name} コイン ${n>0?'+':''}${n}`);}
   if(card.type==='guardian'){p.guardian={kind:e,turns:4,script:card.script||'',program:card.program||null};crLog(r,`👼 ${p.name} に「${card.name}」が降臨（4ターン）`);}
   if(card.type==='omen')crPhenomenon(r,e);
   else crVisual(r,card.type==='guardian'?'guardian':e==='heal'?'heal':'status',card.type==='guardian'?'守護神、降臨！':e==='heal'?'回復！':'カード発動！',p.name+'｜'+card.name+(card.power?'｜威力'+card.power:''),card.emoji||'✨',e);
@@ -374,7 +384,7 @@ function crBot(r){
     const cards=b.hand.filter(c=>c.type==='defense'&&crCanPay(b,[c])).sort((a,z)=>z.power-a.power);
     const chosen=[];let guard=0,mp=0,gold=0;
     for(const c of cards){
-      if((c.resource==='gold'?gold+c.cost<=b.gold:mp+c.cost<=b.mp)&&chosen.length<18){
+      if((c.resource==='gold'?gold+c.cost<=b.gold:mp+c.cost<=b.mp) ){
         chosen.push(c.uid);guard+=c.power;if(c.resource==='gold')gold+=c.cost;else mp+=c.cost;
         if(['reflect','reflect_full','reflect_double','redirect','scatter','nullify','absorb'].includes(c.effect)||guard>=r.pending.damage)break;
       }
@@ -419,17 +429,13 @@ function crShop(r,p,item,targetId){
   if(!offer)throw Error('その商品は購入できません');
   if(p.shopUsed)throw Error('購入は自分の手番ごとに1回です');
   if(p.gold<offer.cost)throw Error('お金が足りません：必要 ¥'+offer.cost);
-  if(item==='heal'&&p.hp>=40)throw Error('HPは最大です');
-  if(item==='mana'&&p.mp>=99)throw Error('MPは最大です');
-  if(item==='shield'&&p.shield>=35)throw Error('バリアは最大です');
-  if(item==='draw'&&p.hand.length>=18)throw Error('持ち札がいっぱいです');
-  if(item==='cleanse'&&!Object.values(p.status).some(v=>v>0))throw Error('治す状態異常がありません');
+    if(item==='cleanse'&&!Object.values(p.status).some(v=>v>0))throw Error('治す状態異常がありません');
   const other=item==='sabotage'?r.players.find(x=>x.id===targetId&&crLive(x)&&x.id!==p.id):null;
   if(item==='sabotage'&&!other)throw Error('魔力を盗む相手を選択してください');
   p.gold-=offer.cost;p.shopUsed=true;
-  if(item==='mana')p.mp=Math.min(99,p.mp+10);
+  if(item==='mana')p.mp=crAdd(p.mp,10);
   else if(item==='heal')crHeal(r,p,8,'買った薬で');
-  else if(item==='shield')p.shield=Math.min(35,p.shield+12);
+  else if(item==='shield')p.shield=crAdd(p.shield,12);
   else if(item==='draw')crDraw(r,p,3);
   else if(item==='cleanse')p.status={poison:0,burn:0,freeze:0,curse:0,weak:0};
   else if(item==='sabotage'){const n=Math.min(8,other.mp);other.mp-=n;p.mp=Math.min(99,p.mp+n);crLog(r,'🕵️ '+p.name+' は '+other.name+' からMP'+n+'奪った');}
@@ -441,7 +447,6 @@ function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer
 function crApply(r,msg,p){
   if(msg.type==='publish'){
     if(r.phase!=='lobby')throw Error('対戦前に追加してください');
-    if(r.cards.length>=24)throw Error('追加カードは24種類までです');
     const card=crValidCard(msg.card,p.name);card.owner=p.id;r.cards.push(card);crLog(r,`🎨 ${p.name} が「${card.name}」を追加`);
   }else if(msg.type==='removeCard'){
     if(r.phase!=='lobby')throw Error('対戦前のみ編集できます');
@@ -487,12 +492,12 @@ function crApply(r,msg,p){
         const card=p.hand.find(c=>c.uid===msg.card&&['magic','item','guardian','omen'].includes(c.type));
         if(!card)throw Error('使用カードを選んでください');crUse(r,p,card,msg.target);
       }else if(msg.type==='pray'){
-        p.mp=Math.min(99,p.mp+5);crDraw(r,p,1);crLog(r,'🙏 '+p.name+' が祈ってMP +5、札を1枚引いた');
+        p.mp=crAdd(p.mp,5);crDraw(r,p,1);crLog(r,'🙏 '+p.name+' が祈ってMP +5、札を1枚引いた');
         crVisual(r,'heal','祈り！',p.name+'｜MPが5回復、札を1枚引いた','🙏');crNext(r);
       }else if(msg.type==='trade'){
         const kinds={mp:['gold','mp'],gold:['mp','gold'],heal:['gold','hp']};const pair=kinds[msg.mode];
         if(!pair||p[pair[0]]<4)throw Error('交換できません');p[pair[0]]-=4;
-        if(pair[1]==='hp')crHeal(r,p,3,'取引で');else p[pair[1]]=Math.min(99,p[pair[1]]+3);
+        if(pair[1]==='hp')crHeal(r,p,3,'取引で');else p[pair[1]]=crAdd(p[pair[1]],3);
         crLog(r,`💱 ${p.name} が交換した`);crNext(r);
       }else if(msg.type==='pass'){crLog(r,`⏭️ ${p.name} はパス`);crNext(r);}
       else throw Error('不明な操作です');
