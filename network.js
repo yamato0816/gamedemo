@@ -18,6 +18,8 @@ const explainPeerError=err=>{
 };
 class Online{
  constructor({onState,onInfo,onError,onClosed}){
+  const invited=(typeof location!=='undefined')?new URLSearchParams(location.search).get('transport'):null;
+  if(invited==='firebase')localStorage.setItem('cr_transport_mode','firebase');
   const transport=localStorage.getItem('cr_transport_mode');
   if(transport==='firebase'){
    if(typeof FirebaseOnline!=='function')throw Error('Firebase通信ライブラリが見つかりません');
