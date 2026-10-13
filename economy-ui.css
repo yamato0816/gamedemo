@@ -36,3 +36,4 @@
 @media(max-width:600px){.gf-market-bar{padding:6px 9px}.gf-market-bar small{font-size:9px}.gf-ko-tag{font-size:10px!important;padding:2px 5px}.gf-death-banner{flex-direction:column;align-items:flex-start;gap:1px}.gf-death-banner b{font-size:13px}.gf-market-item{min-height:61px}.gf-market-sheet{padding:13px}.gf-final-list{grid-template-columns:1fr 1fr}}
 @media(max-width:340px){.gf-market-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.gf-ko-veil,.gf-ko-hero{animation:none}}
+@media(max-width:600px){.gf-market-bar{padding:3px 7px;margin:3px 0;min-height:34px}.gf-market-bar b{font-size:12px}.gf-market-bar small{font-size:8px}.gf-market-bar button{min-height:29px;font-size:11px;min-width:90px}}
