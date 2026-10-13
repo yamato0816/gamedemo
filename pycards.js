@@ -127,7 +127,7 @@ function run(program,event,ctx,actions){
       case 'target_mp':return ctx.target?.mp||0;
       case 'my_gold':return ctx.self.gold;
       case 'target_gold':return ctx.target?.gold||0;
-      case 'my_defense_cards':return ctx.self.hand.filter(c=>c.type==='defense').length;
+      case 'my_defense_cards':return ctx.ownDefenseCount??ctx.self.hand.filter(c=>c.type==='defense').length;
       case 'target_defense_cards':return ctx.target?.hand?.filter(c=>c.type==='defense').length||0;
       case 'incoming_damage':return ctx.incomingDamage||ctx.r.pending?.damage||0;
       case 'round_number':return ctx.r.round;
