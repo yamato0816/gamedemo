@@ -1,5 +1,12 @@
 # CHAOS RELIC P2P / カオスレリック
 
+## Firebase Realtime Database 通信（大学Wi-Fi向け）
+
+Firebaseを使った第3の通信方式を追加しました。**手順は [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) を参照**してください。Firebase Sparkプロジェクトを作成して、匿名認証を有効にし、[firebase.database.rules.json](./firebase.database.rules.json) を適用します。サイト全体で同じ設定を使うなら [firebase-config.js](./firebase-config.js) にブラウザ用Firebase構成を書き込めば、友達は招待リンクだけで接続できます。P2Pと既存のWebSocket中継も引き続き選択できます。
+
+本番Firebaseはアカウントの初期設定後に有効になります。**コードのpushは完了していてもFirebaseプロジェクトの作成・ルール公開は未実施**です。
+
+
 友達と **2〜8人** で遊べる、無料の短時間オンラインカードバトルです。ゴッドフィールドの「ランダムな手札で攻防する」遊びに着想を得ていますが、**画像・カードイラスト・名称・素材は独自のもの**です。
 
 ## 今回の変更点
