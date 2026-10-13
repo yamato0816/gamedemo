@@ -23,7 +23,7 @@ let name=load('cr3-name',''),custom=load('cr3-cards',[]),state=null,chosen=new S
 let editorMode='form';
 let pending=false,showRules=false;let timer=null,lastViewHash='';
 function toast(message,bad=false){const t=$('toast');t.textContent=message;t.className='visible'+(bad?' error':'');clearTimeout(timer);timer=setTimeout(()=>t.className='',3300);}
-const net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
+const net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
 function ready(){return state&&net.ready;}
 function me(){return state?.players.find(p=>p.id===state.me);}
 function amTurn(){return state?.phase==='game'&&state.turn===state.me&&!state.pending&&me()?.hp>0;}
@@ -55,7 +55,7 @@ function lobby(){const room=state;return `<div class="lobby-head"><div><span cla
   <div class="lobby-columns"><section class="paper"><h2><span>♟</span> 参加プレイヤー <small>${state.players.length}/8人</small></h2>
   <div class="lobby-players">${state.players.map((p,i)=>`<div class="lobby-member"><span class="round-avatar">${ICONS[i%ICONS.length]}</span><div><b>${e(p.name)}</b><small>${p.id===state.me?'あなた':p.bot?'CPU':p.id===state.host?'部屋主':'参加中'}</small></div><span>${p.id===state.host?'👑':p.bot?'🤖':'●'}</span></div>`).join('')}</div>
   ${state.me===state.host?`<div class="row-actions"><button class="subtle" data-action="add-bot">＋ CPUを追加</button><button class="subtle" data-action="remove-bot">− CPUを外す</button></div><button class="primary big" ${state.players.length<2?'disabled':''} data-action="start">対戦開始 ⚔️</button>`:'<p class="hint">👑 部屋主が対戦を開始するのを待っています。</p>'}
-  <p class="hint">⚠ ホストがブラウザを閉じると部屋は終了します。</p></section>
+  <p class="hint">👑 Firebase対戦ではホストが抜けても残った参加者へ自動引き継ぎします。P2P方式ではホストが抜けると終了します。</p></section>
   <section class="paper"><div class="paper-title"><h2><span>✎</span> みんなの自作カード <small>${state.customCards.length}枚</small></h2><button class="secondary small" data-action="editor">＋ カードを作る</button></div>
    ${state.customCards.length?`<div class="shared-cards">${state.customCards.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>${e(c.author)} · ${e(TYPE[c.type][0])}</small></div>${c.owner===state.me||state.host===state.me?`<button data-action="remove" data-id="${e(c.id)}" class="small danger">×</button>`:''}</div>`).join('')}</div>`:'<div class="empty"><strong>まだ自作カードはありません</strong><p>作ったカードは全員の山札に混ざります。</p></div>'}
    <h3 class="my-card-heading">保存済みのカード</h3>
@@ -206,7 +206,7 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  case 'card':selectCard(id);break;case 'target':target=id;render();break;case 'play':play();break;case 'defend':play();break;case 'take-hit':chosen.clear();act('defend',{cards:[]});break;
  case 'pass':act('pass');break;case 'pray':act('pray');break;case 'trade':act('trade',{mode:'heal'});break;
  case 'publish':publishCard(id);break;case 'remove':act('removeCard',{id});break;case 'delete':custom=custom.filter(c=>c.localId!==id);save('cr3-cards',custom);render();break;
- case 'code-only':draftCode=FULL_CARD_TEMPLATE;if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}toast('名前・説明・威力・コストまで、コードだけで指定できます');break;case 'mode-form':getDraft();setEditorMode('form');break;case 'mode-code':getDraft();setEditorMode('code');break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
+ case 'code-only':setEditorMode('code');draftCode=FULL_CARD_TEMPLATE;if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}toast('名前・説明・威力・コストまで、コードだけで指定できます');break;case 'mode-form':getDraft();setEditorMode('form');break;case 'mode-code':getDraft();setEditorMode('code');break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
  case 'snippet':getDraft();draftCode=TEMPLATES[id];$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));break;
  case 'insert':editCodeInsert(btn.dataset.code);break;
  } }catch(err){toast(err.message,true);}});
