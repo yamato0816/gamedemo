@@ -226,7 +226,7 @@ function crAttack(r,from,to,cards){
   const els=[...new Set(cards.map(c=>c.element).filter(x=>x!=='none'))];
   r.pending={from:from.id,to:to.id,damage:dmg,element:els.length===1?els[0]:'none',
     pierce:effects.filter(x=>x==='pierce').length*3,effects,kind:cards.some(c=>c.type==='magic')?'magic':'attack',
-    cards:cards.map(c=>({name:c.name,script:c.script||'',program:c.program||null}))};
+    cards:cards.map(c=>({name:c.name,emoji:c.emoji||'✨',type:c.type||'attack',effect:c.effect||'normal',power:c.power||0,script:c.script||'',program:c.program||null}))};
   crLog(r,`⚔️ ${from.name} → ${to.name}: ${cards.map(c=>c.name).join(' + ')}（威力${dmg}）`);
   cards.forEach(c=>crRules(r,c,'play',{self:from,target:to}));
   if(crWinner(r))r.pending=null;
@@ -247,11 +247,12 @@ function crDefend(r,p,ids){
     crRules(r,c,'defend',{self:p,target:from,damageTaken:dealt});
     if(c.effect==='mana')p.mp=Math.min(99,p.mp+3);
     if(pending.damage<=block){
-      if(c.effect==='reflect')crHit(r,from,4,'反射で');
-      if(c.effect==='counter')crHit(r,from,2,'反撃で');
+      if(c.effect==='reflect'){crLog(r,`↩️ ${p.name} は跳ね返した！`);crHit(r,from,4,'反射で');}
+      if(c.effect==='counter'){crLog(r,`⚔️ ${p.name} は反撃した！`);crHit(r,from,2,'反撃で');}
       crRules(r,c,'block',{self:p,target:from,damageTaken:0});
     }
   }
+  if(dealt===0)crLog(r,`🟢 ${p.name} は無事！`);
   if(dealt>0){
     for(const e of pending.effects){
       if(['poison','burn','freeze'].includes(e))crStatus(r,p,e,e==='freeze'?1:3);
@@ -286,7 +287,7 @@ function crUse(r,p,card,targetId){
 function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:10,gold:16,shield:0,
   status:{poison:0,burn:0,freeze:0,curse:0,weak:0},guardian:null,hand:[]};}
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
-  turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind}:null,
+  turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:r.pending.cards||[]}:null,
   winner:r.winner,phenomenon:r.phenomenon||null,
   players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
