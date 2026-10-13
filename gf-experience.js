@@ -17,21 +17,39 @@ function gfTopCard(c){
 function gfFighter(p,label,cards) {
  return `<div class="gf-fighter"><div class="gf-fighter-title"><span class="gf-mark"></span>${e(p?.name||'待機中')}</div><small>${label}</small><div class="gf-played-cards">${cards?.length?cards.slice(0,3).map(gfTopCard).join(''):gfTopCard(null)}</div></div>`;
 }
+let gfHoldTimer=0,gfWasHold=false,gfInfoUid='';
+function gfCardIcon(c,enabled){
+ const active=chosen.has(c.uid);
+ return `<button class="gf-compact-card ${e(c.type)} ${active?'picked':''} ${enabled?'usable':'unusable'}" data-gf-action="card" data-id="${e(c.uid)}" title="${e(c.name)} / ${c.power?'威力'+c.power:'特殊'} / ${c.cost?'消費MP'+c.cost:'無料'}" aria-label="${e(c.name)}（長押しで詳細）" aria-pressed="${active}"><span class="gf-card-em">${e(c.emoji||'🃏')}</span>${c.power?`<b class="gf-card-pow">${c.type==='defense'?'守':'攻'}${c.power}</b>`:''}${c.cost?`<small class="gf-card-mp">${c.resource==='gold'?'¥':'◆'}${c.cost}</small>`:''}</button>`;
+}
+function gfCardInfo(id){
+ const c=state?.hand.find(c=>c.uid===id);if(!c)return;
+ document.getElementById('gf-inspect')?.remove();
+ const el=document.createElement('div');el.id='gf-inspect';el.className='gf-inspect';
+ const description=c.description||descriptions[c.effect]||'特殊効果';
+ el.innerHTML=`<div class="gf-inspect-body" role="dialog" aria-label="カードの詳細"><button data-gf-action="close-info" aria-label="閉じる">×</button><div class="gf-inspect-art">${e(c.emoji||'🃏')}</div><h2>${e(c.name)}</h2><p>${e(description)}</p><div class="gf-inspect-tags"><span>${e(TYPE[c.type]?.[0]||'札')}</span><span>${c.power?'威力 '+c.power:'特殊効果'}</span><span>${c.cost?'消費 '+c.cost+' '+(c.resource==='gold'?'G':'MP'):'無料'}</span><span>${e(ELEMENT[c.element]||'無')}属性</span></div></div>`;
+ document.body.appendChild(el);
+}
+function gfHistory(){document.getElementById('gf-history')?.remove();const el=document.createElement('div');el.className='gf-history';el.id='gf-history';el.innerHTML=`<div class="gf-history-body"><div class="gf-history-head"><b>📜 バトル履歴</b><button data-gf-action="close-history">×</button></div>${(state?.log||[]).map(t=>`<p>${e(t)}</p>`).join('')||'<p>まだ履歴はありません。</p>'}</div>`;document.body.appendChild(el);}
+function gfSimpleScore(p){const allowed=p.id!==state.me&&p.hp>0;const statusesHTML=Object.entries(statuses).filter(([key])=>p[key]>0).map(([key,v])=>`<span title="${e(v[1])}">${v[0]}</span>`).join('');return `<button class="gf-small-score ${p.id===state.me?'mine':''} ${p.id===state.turn?'turn':''} ${p.id===target?'target':''}" ${allowed?`data-action="target" data-id="${e(p.id)}"`:'disabled'}><b>${e(p.name)}</b><small>♥${p.hp}　◆${p.mp}　¥${p.gold}</small>${p.guardian?`<i class="gf-god-icon" title="${e(gods[p.guardian.kind]?.[0]||'守護神')}">${e(iconMap[p.guardian.kind]||'👼')}</i>`:''}<span class="gf-status-dots">${statusesHTML}</span></button>`;}
+function gfCurrentEvent(){const n=state?.visualEvent;if(n)return n;return {kind:'neutral',icon:'✦',title:'対戦中',detail:(state?.log?.[0]||'カードを選んでください')};}
 battle=function(){
- const def=amDefending(),active=amTurn(),held=chosenCards(),incoming=state.pending,from=incoming?state.players.find(p=>p.id===incoming.from):state.players.find(p=>p.id===state.turn),to=incoming?state.players.find(p=>p.id===incoming.to):state.players.find(p=>p.id===target);
- const attackCards=incoming?.cards||((active&&held.some(c=>c.type==='attack'))?held:[]);
- const info=def?`${e(from?.name||'相手')}から攻撃！ 防御札を選んでください`:active?'あなたの手番です。札と標的を選択':incoming?`${e(to?.name||'相手')}が防御を選択中`:`${e(from?.name||'相手')}の手番です`;
- const command=def?`${action('🛡 弾く'+(held.length?' ('+held.length+'枚)':''),'gf-primary','defend')}${action('受ける','gf-secondary','take-hit')}`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>${held[0]?.type==='attack'?'⚔ 攻撃':'✦ 使う'}</button>${action('祈る','gf-secondary','pray')}${action('交換','gf-secondary','trade')}${action('パス','gf-quiet','pass')}`:'<span class="gf-wait">相手の行動を待っています…</span>';
- return `<div class="gf-game"><header class="gf-game-header"><span>✦ CHAOS RELIC</span><strong>第${state.round}ラウンド</strong><span id="clock" class="gf-timer">--秒</span><button data-gf-action="dictionary" title="辞書を開く">📖</button></header>
- <div class="gf-field"><div class="gf-duel">${gfFighter(from,'攻撃側',attackCards)}<div class="gf-arrow">➜</div>${gfFighter(to,'防御側',[])}</div>
- <div class="gf-power"><span>攻撃 ${incoming?.damage??(active?attackCards.reduce((n,c)=>n+(c.power||0),0):0)}</span><span>${def?'🛡 弾く':active?'⚔ 攻める':'⏳ 待機中'}</span></div>
- <div class="gf-context ${def?'danger':active?'active':''}">${info}</div>
- <section class="gf-hand-shell"><div class="gf-hand-heading"><b>持ち札 <small>${state.hand.length}枚</small></b><span>タップして選ぶ</span></div><div class="gf-hand-grid">${state.hand.map(c=>cardHTML(c,(def&&c.type==='defense')||(active&&c.type!=='defense'))).join('')}</div></section>
- <div class="gf-actions"><div class="gf-selection">${held.length?`選択中：${held.map(c=>e(c.name)).join(' ＋ ')}`:'札を選んでください'} <span>${target?'標的：'+e(to?.name||state.players.find(p=>p.id===target)?.name||'') :''}</span></div><div class="gf-controls">${command}</div></div>
- <section class="gf-scoreboard">${state.players.map(gfScore).join('')}</section>
- <div class="gf-omen"><button data-gf-action="dictionary">✦ 起こした奇跡：${e(omens[state.phenomenon?.kind]?.[0]||'なし')}　›</button></div>
- <div class="gf-mini-log"><b>直近の出来事</b><div>${state.log.slice(0,5).map((s,i)=>`<p class="${i===0?'latest':''}">${e(s)}</p>`).join('')}</div></div>
- <div class="gf-toolbar"><button data-gf-action="dictionary">📚 神話辞典</button><button data-action="rules">あそびかた</button><button data-action="leave">退出</button></div>
+ const def=amDefending(),active=amTurn(),held=chosenCards(),incoming=state.pending;
+ const from=incoming?state.players.find(p=>p.id===incoming.from):state.players.find(p=>p.id===state.turn);
+ const to=incoming?state.players.find(p=>p.id===incoming.to):state.players.find(p=>p.id===target);
+ const cards=incoming?.cards||((active&&held.length)?held:[]);
+ const info=gfCurrentEvent();
+ const cmds=def?`<button class="gf-primary" data-action="defend">🛡 弾く ${held.length?held.length+'枚':''}</button><button class="gf-secondary" data-action="take-hit">受ける</button>`:active?`<button class="gf-primary" data-action="play" ${held.length?'':'disabled'}>⚔ ${held[0]?.type==='attack'?'攻撃':'使う'}</button><button class="gf-secondary" data-action="pray">祈る+5MP</button><button class="gf-secondary" data-action="trade">交換</button><button class="gf-quiet" data-action="pass">パス</button>`:'<span class="gf-wait">'+e(incoming?'防御を待っています':'次の手番を待っています')+'</span>';
+ const played=c=>c?`<span class="gf-play-small">${e(c.emoji||'🃏')}<small>${e(c.name)}</small></span>`:'<span class="gf-play-small quiet">？<small>待機</small></span>';
+ return `<div class="gf-game gf-compact"><header class="gf-game-header"><span>✦ CHAOS RELIC</span><strong>第${state.round}R</strong><span id="clock" class="gf-timer">--秒</span><button data-gf-action="dictionary" title="辞書">📖</button></header>
+ <div class="gf-field gf-compact-field"><div class="gf-announcement ${e(info.kind||'neutral')}"><span>${e(info.icon||'✦')}</span><div><b>${e(info.title||'対戦中')}</b><small>${e(info.detail||'次の行動を待っています')}</small></div></div>
+ <div class="gf-compact-duel"><div><b>${e(from?.name||'攻撃側')}</b>${played(cards[0])}</div><span class="gf-duel-arrow">➜<small>${incoming?'攻 '+incoming.damage:'攻防'}</small></span><div><b>${e(to?.name||'防御側')}</b>${played(cards[1])}</div></div>
+ <div class="gf-hand-heading gf-compact-title"><b>持ち札 <small>${state.hand.length}枚</small></b><span>タップで選択・長押しで説明</span></div>
+ <section class="gf-icon-grid" aria-label="持ち札">${state.hand.map(c=>gfCardIcon(c,(def&&c.type==='defense')||(active&&c.type!=='defense'))).join('')}</section>
+ <div class="gf-compact-selection">${held.length?'選択：'+held.map(c=>e(c.name)).join('＋'):'札を選んでください'}${target?`<span>標的：${e(state.players.find(p=>p.id===target)?.name||'')}</span>`:''}</div>
+ <div class="gf-controls gf-compact-controls">${cmds}</div>
+ <div class="gf-compact-scores">${state.players.map(gfSimpleScore).join('')}</div>
+ <div class="gf-compact-nav"><button data-gf-action="dictionary">📚 辞書</button><button data-gf-action="history">📜 履歴</button><button data-action="leave">退出</button>${state.phenomenon?`<span>🌌 ${e(omens[state.phenomenon.kind]?.[0]||'超常現象')}</span>`:''}</div>
  </div></div>`;
 };
 const originalRenderModal=renderModal;
@@ -58,23 +76,16 @@ renderModal=function(){
  });
 };
 const holder=document.createElement('div');holder.id='gf-battle-fx';holder.setAttribute('aria-live','polite');document.body.appendChild(holder);
-let oldHead='',animTimeout=0;
-const calls=[[/跳ね返|反射/,'跳ね返した！','blue'],[/無事/,'無事！','green'],[/反撃/,'反撃！','red'],[/クリティカル/,'クリティカル！','red'],[/復活/,'復活！','gold'],[/凍結/,'凍結！','blue'],[/炎上/,'炎上！','red'],[/毒/,'毒！','purple'],[/超常現象/,'超常現象！','gold']];
+let oldHead='',animTimeout=0,oldNotice=0;
 function gfEffect(){
- if(!state||state.phase!=='game'){oldHead='';return;}
- const logs=state.log||[];
- if(oldHead){
-   const idx=logs.indexOf(oldHead),newItems=idx<0?[]:logs.slice(0,idx);
-   for(const [regex,label,tone] of calls){
-      if(newItems.some(line=>regex.test(line))){
-        holder.className='gf-battle-fx '+tone;holder.textContent=label;
-        holder.style.animation='none';holder.offsetHeight;holder.style.animation='';
-        clearTimeout(animTimeout);animTimeout=setTimeout(()=>{holder.textContent='';holder.className=''},1700);
-        break;
-      }
-   }
- }
- oldHead=logs[0]||'';
+ if(!state||state.phase!=='game'){oldHead='';oldNotice=0;return;}
+ const n=state.visualEvent;if(!n?.seq||n.seq===oldNotice)return;oldNotice=n.seq;
+ if(!['omen','guardian','reflect','safe','attack','damage','heal','status'].includes(n.kind))return;
+ const particles=(n.kind==='omen'||n.kind==='guardian')?Array.from({length:9},(_,i)=>`<i style="--i:${i}">${n.kind==='omen'?'✦':'✧'}</i>`).join(''):'';
+ holder.className='gf-battle-fx gf-v2-fx '+e(n.kind)+' '+e(n.variant||'');
+ holder.innerHTML=`<div class="gf-fx-particles">${particles}</div><span class="gf-fx-emoji">${e(n.icon||'✨')}</span><strong>${e(n.title||'奇跡！')}</strong><small>${e(n.detail||'')}</small>`;
+ holder.style.animation='none';void holder.offsetWidth;holder.style.animation='';
+ clearTimeout(animTimeout);animTimeout=setTimeout(()=>{holder.innerHTML='';holder.className='gf-battle-fx';},1950);
 }
 const originalRender=render;
 render=function(){originalRender();gfEffect();};
@@ -83,10 +94,18 @@ document.addEventListener('click',event=>{
  event.preventDefault();event.stopImmediatePropagation();
  if(btn.dataset.gfAction==='dictionary'){modal='dictionary';renderModal();}
  if(btn.dataset.gfAction==='close-dictionary'){modal='';renderModal();}
+ if(btn.dataset.gfAction==='card'){if(gfWasHold){gfWasHold=false;return;}const c=state?.hand?.find(c=>c.uid===btn.dataset.id);if(!c)return;const allowed=(amDefending()&&c.type==='defense')||(amTurn()&&c.type!=='defense');if(allowed)selectCard(c.uid);else gfCardInfo(c.uid);}
+ if(btn.dataset.gfAction==='close-info')document.getElementById('gf-inspect')?.remove();
+ if(btn.dataset.gfAction==='history')gfHistory();
+ if(btn.dataset.gfAction==='close-history')document.getElementById('gf-history')?.remove();
 },true);
 const header=document.querySelector('.header-right');
 if(header){
  const button=document.createElement('button');button.className='header-link gf-dict-header';button.textContent='📚 辞書';button.setAttribute('data-gf-action','dictionary');header.insertBefore(button,header.firstChild);
 }
+document.addEventListener('pointerdown',ev=>{const btn=ev.target.closest('[data-gf-action="card"]');if(!btn)return;clearTimeout(gfHoldTimer);gfWasHold=false;gfInfoUid=btn.dataset.id;gfHoldTimer=setTimeout(()=>{gfWasHold=true;gfCardInfo(gfInfoUid);},450);},{passive:true});
+for(const evName of ['pointerup','pointercancel','pointerleave'])document.addEventListener(evName,()=>clearTimeout(gfHoldTimer));
+document.addEventListener('contextmenu',ev=>{const btn=ev.target.closest('[data-gf-action="card"]');if(!btn)return;ev.preventDefault();clearTimeout(gfHoldTimer);gfWasHold=true;gfCardInfo(btn.dataset.id);});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){document.getElementById('gf-inspect')?.remove();document.getElementById('gf-history')?.remove();}});
 render();
 })();
