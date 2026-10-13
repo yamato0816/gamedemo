@@ -17,7 +17,7 @@ class RelayOnline {
         else{this.onInfo('ホストを探しています');ws.send(JSON.stringify({type:'hello',name}));}
       }else if(msg.type==='state'&&!this.isHost){this.ready=true;this.onState(msg.state);this.onInfo('WSS中継に接続');settle();}
       else if(msg.type==='hello'&&this.isHost){try{GameEngine.join(this.room,msg.from,String(msg.name||'旅人').slice(0,14));this.peers.add(msg.from);this._broadcast();}catch(err){this.onError(err.message);}}
-      else if(msg.type==='action'&&this.isHost&&this.peers.has(msg.from)){try{if(JSON.stringify(msg.action).length>12000)throw Error('操作が長すぎます');GameEngine.apply(this.room,msg.from,msg.action);this._broadcast();}catch(err){this.onError(err.message);}}
+      else if(msg.type==='action'&&this.isHost&&this.peers.has(msg.from)){try{if(JSON.stringify(msg.action).length>262144)throw Error('操作が長すぎます');GameEngine.apply(this.room,msg.from,msg.action);this._broadcast();}catch(err){this.onError(err.message);}}
       else if(msg.type==='guest_left'&&this.isHost){this.peers.delete(msg.from);if(['lobby','finished'].includes(this.room.phase))GameEngine.leave(this.room,msg.from);else{const p=this.room.players.find(p=>p.id===msg.from);if(p)p.lastSeen=0;}this._broadcast();}
       else if(msg.type==='closed')this.onClosed('ホストが部屋を閉じました');
    };
