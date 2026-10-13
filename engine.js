@@ -52,11 +52,19 @@ const CR_BASE = [
   ['天変地異の書','omen',0,'random','none',3,3,'📜'],
   ['祝祭の鐘','omen',0,'blessing','none',2,2,'🔔'],
   ['隕石の予兆','omen',0,'meteor','fire',3,2,'☄️'],
-  ['時空の歪み','omen',0,'exchange','dark',4,2,'🌀']
+  ['時空の歪み','omen',0,'exchange','dark',4,2,'🌀'],
+  ['等倍反射鏡','defense',0,'reflect_full','lightning',3,3,'🪞'],['超倍返しの盾','defense',0,'reflect_double','dark',7,2,'🪬'],
+  ['身代わり転送','defense',0,'redirect','water',4,3,'🎯'],['混沌の分散盾','defense',0,'scatter','none',4,3,'🎲'],
+  ['絶対無効結界','defense',0,'nullify','lightning',6,2,'🫧'],['魔力吸収炉','defense',0,'absorb','water',2,4,'🔋'],
+  ['雷鳴の連鎖','attack',9,'chain','lightning',3,3,'⛓️'],['二段撃ち','attack',8,'double_hit','none',2,3,'🏹'],
+  ['命の略奪','attack',6,'siphon','dark',3,2,'🩸'],['全員攻撃の槍','attack',8,'splash','fire',3,2,'🪓'],
+  ['逆転の天秤','magic',0,'swap_hp','dark',6,3,'⚖️'],['全体呪詛','magic',0,'mass_poison','dark',5,3,'☣️'],
+  ['強奪の契約','magic',9,'steal_mp','dark',4,3,'🫳'],['運命のシャッフル','magic',0,'scramble','none',4,2,'🎴'],
+  ['MP発電機','item',15,'mana','water',0,4,'🔌'],['魔法の大盾','defense',16,'normal','none',2,2,'🛡️']
 ].map(function(x,i){return {id:'base-'+i,name:x[0],type:x[1],power:x[2],effect:x[3],element:x[4],cost:x[5],resource:'mp',weight:x[6],emoji:x[7],author:'公式',rules:[]};});
 const CR_TYPES=['attack','defense','magic','item','guardian','omen'];
 const CR_ELEMS=['none','fire','water','forest','lightning','dark'];
-const CR_EFFECTS={attack:['normal','pierce','poison','drain','splash','wild','burn','freeze'],defense:['normal','reflect','counter','mana'],magic:['blast','heal','mana','gold','poison','drain','hex','freeze','curse','burn','cleanse'],item:['heal','mana','gold','draw','cleanse','lottery'],guardian:['phoenix','turtle','sprite','storm','muse'],omen:['random','blessing','meteor','exchange']};
+const CR_EFFECTS={attack:['normal','pierce','poison','drain','splash','wild','burn','freeze','chain','double_hit','siphon'],defense:['normal','reflect','reflect_full','reflect_double','redirect','scatter','nullify','absorb','counter','mana'],magic:['blast','heal','mana','gold','poison','drain','hex','freeze','curse','burn','cleanse','swap_hp','mass_poison','steal_mp','scramble'],item:['heal','mana','gold','draw','cleanse','lottery'],guardian:['phoenix','turtle','sprite','storm','muse'],omen:['random','blessing','meteor','exchange']};
 const CR_STATUSES=['poison','burn','freeze','curse','weak'];
 const CR_EVENTS=['play','hit','defend','block','turn_start'];
 const CR_OPS=['damage','heal','status','resource','draw','cleanse','shield','summon','phenomenon','steal','swap_hp'];
@@ -69,6 +77,8 @@ const crClamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
 const crInt=(v,a,b)=>Math.round(crClamp(v,a,b));
 const crText=(v,n=24)=>String(v||'').replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,n);
 const crLive=p=>p&&p.hp>0;
+const crHuge=v=>{const n=Number(v??0);if(!Number.isFinite(n)||n<0)throw Error('0以上の有限の数値を入力してください');return Math.round(n);};
+const crSafeDamage=v=>Number.isFinite(v)?Math.max(0,v):Number.MAX_SAFE_INTEGER;
 
 function crLog(r,msg){r.log.unshift(msg);r.log.length=Math.min(r.log.length,24);}
 function crVisual(r,kind,title,detail,icon='✨',variant=''){
@@ -85,7 +95,7 @@ function crDraw(r,p,n){for(let i=0;i<n&&p.hand.length<18;i++)p.hand.push(crPick(
 function crHeal(r,p,n,why){const v=Math.min(40-p.hp,crInt(n,0,40));p.hp+=v;if(v)crLog(r,`💚 ${p.name} ${why||'回復'} +${v}HP`);return v;}
 function crHit(r,p,n,why){
   if(!crLive(p))return 0;
-  let d=crInt(n,0,90);
+  let d=crSafeDamage(Number(n));
   if(p.guardian&&p.guardian.kind==='turtle'){d=Math.max(0,d-3);}
   if(p.shield){const block=Math.min(d,p.shield);p.shield-=block;d-=block;}
   const dealt=Math.min(p.hp,d);p.hp-=dealt;
@@ -131,9 +141,9 @@ function crValidCard(raw,author){
   if(!raw||!CR_TYPES.includes(raw.type))throw Error('カードの種類が不正です');
   const name=crText(raw.name,16);if(!name)throw Error('カード名は必須です');
   const type=raw.type;
-  const created={id:'custom-'+crUid(),name,type,power:crInt(raw.power,0,18),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
-    element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crInt(raw.cost,0,15),resource:raw.resource==='gold'?'gold':'mp',
-    weight:crInt(raw.weight||3,1,5),emoji:crText(raw.emoji||'✨',6),author:crText(author,14),description:crText(raw.description,100),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,3500):'',program:null};
+  const created={id:'custom-'+crUid(),name,type,power:crHuge(raw.power),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
+    element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crHuge(raw.cost),resource:raw.resource==='gold'?'gold':'mp',
+    weight:Math.max(1,Math.min(10000,crHuge(raw.weight||3))),emoji:crText(raw.emoji||'✨',6),author:crText(author,14),description:crText(raw.description,100),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,3500):'',program:null};
   if(created.script)created.program=PyCards.compile(created.script);
   return created;
 }
@@ -226,11 +236,12 @@ function crNext(r){
   }
 }
 function crAttack(r,from,to,cards){
-  let dmg=cards.reduce((n,c)=>n+c.power,0);
+  let dmg=crSafeDamage(cards.reduce((n,c)=>n+c.power,0));
   const effects=cards.map(c=>c.effect);
   if(effects.includes('wild')){if(Math.random()<.42){dmg=0;crLog(r,'🎲 ギャンブル攻撃は空振り！');}else dmg+=6;}
   if(Math.random()<.12){dmg+=4;crLog(r,'✨ クリティカル +4');}
   if(from.status.weak){dmg=Math.max(0,dmg-3);from.status.weak--;}
+  dmg=crSafeDamage(dmg);
   const els=[...new Set(cards.map(c=>c.element).filter(x=>x!=='none'))];
   r.pending={from:from.id,to:to.id,damage:dmg,element:els.length===1?els[0]:'none',
     pierce:effects.filter(x=>x==='pierce').length*3,effects,kind:cards.some(c=>c.type==='magic')?'magic':'attack',
@@ -250,13 +261,32 @@ function crDefend(r,p,ids){
   crSpend(p,cards);crTake(r,p,cards);
   const power=cards.reduce((n,c)=>n+c.power+(c.element===pending.element&&pending.element!=='none'?2:0),0);
   const block=Math.max(0,power-pending.pierce);
-  let dealt=crHit(r,p,Math.max(0,pending.damage-block),'攻撃されて');
+  const special=cards.find(c=>['reflect','reflect_full','reflect_double','redirect','scatter','nullify','absorb'].includes(c.effect));
+  const incoming=crSafeDamage(pending.damage);
+  let dealt=0,redirected=[],trick='';
+  if(special){
+    if(['reflect','reflect_full','reflect_double'].includes(special.effect)){
+      redirected=[from];trick='跳ね返した！';
+      crHit(r,from,crSafeDamage(incoming*(special.effect==='reflect_double'?2:1)),special.name+'の反射で');
+    }else if(special.effect==='redirect'){
+      const pool=crLiving(r).filter(x=>x.id!==p.id);
+      if(pool.length){const victim=pool[crRand(pool.length)];redirected=[victim];trick='転送成功！';crHit(r,victim,incoming,special.name+'の転送で');}
+    }else if(special.effect==='scatter'){
+      const pool=crLiving(r).filter(x=>x.id!==p.id);
+      const victims=pool.sort(()=>Math.random()-.5).slice(0,Math.min(pool.length,3));
+      victims.forEach(x=>crHit(r,x,Math.ceil(incoming/Math.max(1,victims.length)),special.name+'の分散で'));
+      redirected=victims;trick='攻撃を分散！';
+    }else if(special.effect==='absorb'){
+      const gained=Math.min(99-p.mp,Math.ceil(incoming/2));p.mp+=gained;trick='魔力を吸収！';
+    }else trick='完全無効！';
+    crLog(r,'🌟 '+p.name+'｜'+special.name+'：'+trick+(redirected.length?' → '+redirected.map(x=>x.name).join('・'):''));
+  }else dealt=crHit(r,p,Math.max(0,incoming-block),'攻撃されて');
   crLog(r,`🛡️ ${p.name}: 防御 ${power} / 攻撃 ${pending.damage} / 貫通 ${pending.pierce}`);
   for(const c of cards){
     crRules(r,c,'defend',{self:p,target:from,damageTaken:dealt});
     if(c.effect==='mana')p.mp=Math.min(99,p.mp+3);
-    if(pending.damage<=block){
-      if(c.effect==='reflect'){crLog(r,`↩️ ${p.name} は跳ね返した！`);crHit(r,from,4,'反射で');}
+    if(pending.damage<=block&&!special){
+      if(c.effect==='reflect'){crLog(r,`↩️ ${p.name} は跳ね返した！`);crHit(r,from,incoming,'反射で');}
       if(c.effect==='counter'){crLog(r,`⚔️ ${p.name} は反撃した！`);crHit(r,from,2,'反撃で');}
       crRules(r,c,'block',{self:p,target:from,damageTaken:0});
     }
@@ -266,32 +296,39 @@ function crDefend(r,p,ids){
     for(const e of pending.effects){
       if(['poison','burn','freeze'].includes(e))crStatus(r,p,e,e==='freeze'?1:3);
       if(e==='drain')crHeal(r,from,Math.max(1,Math.floor(dealt/2)),'吸収で');
-      if(e==='splash')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,2,'巻き添えで'));
+      if(e==='splash')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(2,Math.ceil(dealt/3)),'巻き添えで'));
+      if(e==='chain')crLiving(r).filter(x=>x.id!==p.id&&x.id!==from.id).forEach(x=>crHit(r,x,Math.max(1,Math.floor(dealt/2)),'連鎖で'));
+      if(e==='double_hit')crHit(r,p,Math.max(1,Math.floor(dealt*.7)),'追撃で');
+      if(e==='siphon'){const stolen=Math.min(p.mp,Math.max(1,Math.floor(dealt/2)));p.mp-=stolen;from.mp=Math.min(99,from.mp+stolen);}
     }
     pending.cards.forEach(c=>crRules(r,c,'hit',{self:from,target:p,damageDealt:dealt}));
     if(p.guardian&&p.guardian.kind==='storm')crHit(r,from,2,'雷神の反撃で');
   }
-  const reflected=pending.damage<=block&&cards.some(c=>c.effect==='reflect');
+  const reflected=!!special&&['reflect','reflect_full','reflect_double'].includes(special.effect);
   const counter=pending.damage<=block&&cards.some(c=>c.effect==='counter');
-  const title=reflected?'跳ね返した！':counter?'反撃！':dealt===0?'無事！':dealt+'ダメージ！';
+  const title=trick||(reflected?'跳ね返した！':counter?'反撃！':dealt===0?'無事！':dealt+'ダメージ！');
   const afflicted=dealt>0?pending.effects.filter(x=>['poison','burn','freeze'].includes(x)).map(x=>({poison:'毒',burn:'炎上',freeze:'凍結'}[x])).join('・'):'';
   const detail='攻:'+pending.cards.map(c=>c.name).join('＋')+' / 防:'+(cards.length?cards.map(c=>c.name).join('＋'):'なし')+'｜攻'+pending.damage+' / 守'+block+(afflicted?'｜'+afflicted:'');
-  crVisual(r,reflected?'reflect':dealt===0?'safe':'damage',title,detail,reflected?'↩️':dealt===0?'🛡️':'💥');
+  crVisual(r,special?'reflect':reflected?'reflect':dealt===0?'safe':'damage',title,detail+(redirected.length?' → '+redirected.map(x=>x.name).join('・'):''),special?.emoji||(reflected?'↩️':dealt===0?'🛡️':'💥'),special?.effect||'');
   r.pending=null;if(!crWinner(r))crNext(r);
 }
 function crUse(r,p,card,targetId){
   if(!crCanPay(p,[card]))throw Error('MPまたはコイン不足');
   const other=r.players.find(x=>x.id===targetId&&crLive(x)&&x.id!==p.id);
-  const hostile=card.type==='magic'&&['blast','drain','poison','hex','freeze','burn','curse'].includes(card.effect);
+  const hostile=card.type==='magic'&&['blast','drain','poison','hex','freeze','burn','curse','swap_hp','steal_mp'].includes(card.effect);
   if(hostile&&!other)throw Error('攻撃相手を選択してください');
   crSpend(p,[card]);crTake(r,p,[card]);crLog(r,`✨ ${p.name} は「${card.name}」を使った`);
   const e=card.effect;
   if(card.type==='magic'&&['blast','drain'].includes(e)){crAttack(r,p,other,[card]);return;}
   if(['poison','burn','freeze','curse'].includes(e))crStatus(r,other,e,e==='freeze'?1:3);
+  if(e==='swap_hp'&&other){const h=p.hp;p.hp=other.hp;other.hp=h;crLog(r,'⚖️ '+p.name+' と '+other.name+' のHP交換！');}
+  if(e==='mass_poison')crLiving(r).filter(x=>x.id!==p.id).forEach(x=>crStatus(r,x,'poison',4));
+  if(e==='steal_mp'&&other){const n=Math.min(other.mp,Math.max(1,card.power));other.mp-=n;p.mp=Math.min(99,p.mp+n);crLog(r,'🫳 '+p.name+' はMP'+n+'奪った！');}
+  if(e==='scramble'){for(const x of crLiving(r)){x.hand=[];crDraw(r,x,9);}crLog(r,'🎴 全員の手札が入れ替わった！');}
   if(e==='hex'){if(Math.random()<.5)crHit(r,other,card.power+4,'呪いで');else crHeal(r,other,5,'まさかの回復で');}
   if(e==='heal')crHeal(r,p,card.power,'カードで');
   if(e==='mana'||e==='gold'){p[e]=Math.min(99,p[e]+card.power);crLog(r,`💫 ${p.name} ${e} +${card.power}`);}
-  if(e==='draw'){crDraw(r,p,card.power);crLog(r,`🃏 ${p.name} が${card.power}枚引いた`);}
+  if(e==='draw'){crDraw(r,p,Math.min(18,card.power));crLog(r,`🃏 ${p.name} が${card.power}枚引いた`);}
   if(e==='cleanse'){p.status={poison:0,burn:0,freeze:0,curse:0,weak:0};crLog(r,`🌱 ${p.name} の状態異常解除`);}
   if(e==='lottery'){const n=Math.random()<.55?card.power:-Math.ceil(card.power/2);p.gold=crInt(p.gold+n,0,99);crLog(r,`🎰 ${p.name} コイン ${n>0?'+':''}${n}`);}
   if(card.type==='guardian'){p.guardian={kind:e,turns:4,script:card.script||'',program:card.program||null};crLog(r,`👼 ${p.name} に「${card.name}」が降臨（4ターン）`);}
