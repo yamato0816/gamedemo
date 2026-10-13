@@ -7,9 +7,9 @@ const STAT={poison:['毒','☠'],burn:['炎上','🔥'],freeze:['凍結','❄'],
 const GD={phoenix:'不死鳥',turtle:'玄武',sprite:'妖精',storm:'雷神',muse:'月の女神'};
 const OM={blessing:'天の祝福',meteor:'流星雨',exchange:'資源の逆転',silence:'静寂',fog:'深い霧',mana_rain:'魔力の雨',earthquake:'地鳴り',random:'未知の現象'};
 const ICONS=['🦊','🐱','🐸','🐻','🐙','🐼','🐰','🦉'];
-const SAMPLE=`# イベントごとに発動する能力を作れます\n# ダメージ値は防御・バリア計算後の実ダメージ\n\ndef on_play():\n    bonus = 3\n    if my_hp() < 20:\n        shield("self", bonus * 2)\n\ndef on_hit():\n    dealt = damage_dealt()\n    recovery = min(8, dealt // 2)\n    if recovery > 0:\n        heal("self", recovery)\n\ndef on_turn_start():\n    if chance(0.35):\n        resource("self", "mp", 2)`;
+const SAMPLE=`# イベントごとに発動する能力を作れます\n# ダメージ値は防御・バリア計算後の実ダメージ\n\ndef on_play():\n    bonus = 3\n    if my_hp() < 20:\n        shield("self", bonus * 2)\n\ndef on_hit():\n    dealt = damage_dealt()\n    recovery = dealt // 2\n    if recovery > 0:\n        heal("self", recovery)\n\ndef on_turn_start():\n    if chance(0.35):\n        resource("self", "mp", 2)`;
 const TEMPLATES={
- lifesteal:`def on_hit():\n    dealt = damage_dealt()\n    if dealt > 0:\n        heal("self", min(8, dealt // 2))`,
+ lifesteal:`def on_hit():\n    dealt = damage_dealt()\n    if dealt > 0:\n        heal("self", dealt // 2)`,
  gamble:`def on_play():\n    luck = randint(1, 6)\n    if luck >= 5:\n        damage("target", luck * 3)\n    elif luck == 1:\n        damage("self", 5)\n    else:\n        shield("self", luck + 2)`,
  guardian:`def on_play():\n    summon("self", "sprite", 4)\n\ndef on_turn_start():\n    health = my_hp()\n    if health < 25:\n        heal("self", 4)\n    else:\n        resource("self", "mp", 2)`,
  counter:`def on_defend():\n    received = damage_taken()\n    if received > 0:\n        damage("target", min(received, 10))\n\ndef on_block():\n    heal("self", 3)`,
