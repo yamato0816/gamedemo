@@ -62,4 +62,13 @@ const clones=(card,n,prefix,power=card.power)=>Array.from({length:n},(_,i)=>({..
  assert.equal(to.hp,40);
  assert.equal(from.hp,28);
 }
+{
+ const r=room(),from=actor(r),to=other(r,from);
+ const shield=game.card({name:'手持ち防御増強',type:'defense',effect:'normal',power:0,cost:0,script:'def on_guard():\n    bonus = my_defense_cards() * 5\n    boost_defense(bonus)'},to.name);
+ from.hand=[{...commonAttack,uid:'strike',power:15}];
+ to.hand=[{...shield,uid:'s0'},...clones(zeroGuard,2,'spare',0)];
+ game.apply(r,from.id,{type:'attack',cards:['strike'],target:to.id});
+ game.apply(r,to.id,{type:'defend',cards:['s0']});
+ assert.equal(to.hp,40,'on_guardは防御選択前の手持ち防御札枚数を読む');
+}
 console.log('PASS: shield count, custom script, 18-card defense, stacking mirrors');
