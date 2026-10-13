@@ -101,3 +101,7 @@
 @keyframes gf-shield-pulse{to{transform:scale(1.17);filter:drop-shadow(0 0 20px #bdf9d7)}}
 @keyframes gf-lightning{50%{opacity:.46;filter:drop-shadow(0 0 28px #f8f5a5)}}
 @media(prefers-reduced-motion:reduce){.gf-battle-fx.gf-v2-fx{animation:none!important}}
+
+/* Communication settings must remain accessible on phones despite generic hidden header links. */
+.transport-btn{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+@media(max-width:730px){.transport-btn{display:inline-flex!important;font-size:0!important;padding:6px!important;min-width:32px}.transport-btn::before{content:'📡';font-size:19px}.gf-dict-header{display:none!important}}
