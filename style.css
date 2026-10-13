@@ -17,3 +17,35 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
 @media(max-width:370px){.connect{display:none}.player-tile{gap:3px}.card{width:96px;min-width:96px}.lobby-players{grid-template-columns:1fr}.command-buttons button{padding:8px 6px}}
 
 .forge-modes{display:flex;gap:9px;padding:8px 16px;background:#edf6e9;border-bottom:1px solid #d6e1d0}.forge-modes button{font-size:12px;flex:1;padding:9px}.forge-modes button:focus-visible{outline:2px solid #557755}
+
+
+/* Accessible two-tab card studio: preserve both drafts while switching. */
+.forge-tabs{gap:0;padding:5px;background:#e5ede4;border-bottom:1px solid #becfbd;position:relative}
+.forge-tabs [role="tab"]{border:1px solid transparent;border-radius:10px 10px 4px 4px;background:transparent;color:#516651;font-weight:800;min-height:42px;cursor:pointer}
+.forge-tabs [role="tab"].active{background:#fff;color:#216b53;border-color:#bacdb8;box-shadow:0 2px 4px #0001}
+.forge-layout.forge-form-mode #forge-code-panel{display:none}
+.forge-layout.forge-code-mode #forge-form-panel{display:none}
+.forge-layout.forge-form-mode,.forge-layout.forge-code-mode{grid-template-columns:minmax(0,1fr)}
+.forge-layout.forge-form-mode .forge-left{border-right:0;display:grid;grid-template-columns:minmax(180px,280px) minmax(0,1fr);gap:16px}
+.forge-layout.forge-code-mode .forge-right{max-width:none}
+.forge-mobile-actions,.forge-quick-keys{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 11px}
+.forge-mobile-actions button,.forge-quick-keys button{border:1px solid #b9cdbc;background:#f2f8f2;color:#34573c;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:800}
+.forge-quick-keys{overflow-x:auto;flex-wrap:nowrap;white-space:nowrap;padding-bottom:4px}
+.forge-quick-keys button{flex:0 0 auto;background:#e0f3ee}
+.forge-code-mode .code-region{height:clamp(320px,48dvh,640px)}
+@media(max-width:730px){
+ .forge-shell{max-height:98dvh;min-height:0}
+ .forge-tabs{padding:4px;flex:0 0 auto}
+ .forge-tabs [role="tab"]{font-size:12px;min-height:43px}
+ .forge-layout.forge-form-mode .forge-left{display:block}
+ .forge-layout.forge-form-mode .forge-art{min-height:95px}
+ .forge-layout.forge-form-mode .forge-preview-card{min-height:110px}
+ .forge-layout.forge-code-mode .forge-right{padding:9px 10px}
+ .forge-code-mode .code-region{height:clamp(250px,43dvh,500px)}
+ .forge-code-mode .code-region textarea,.forge-code-mode .code-region pre{font-size:13px;line-height:23px}
+ .forge-code-mode .line-numbers{line-height:23px}
+ .forge-mobile-actions{display:flex;flex-wrap:nowrap;overflow-x:auto}
+ .forge-mobile-actions button{flex:0 0 auto}
+ .forge-footer{flex:0 0 auto}
+ .forge-footer>div button{min-height:38px}
+}
