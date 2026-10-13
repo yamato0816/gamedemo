@@ -37,6 +37,7 @@ class FirebaseOnline{
   this.ready=false;this.isHost=false;this.room=null;this.code='';this.id='';
   this.db=null;this.app=null;this.clock=null;this.tick=0;this.refs=[];this.actionRefs=new Map();
   this.members=new Set();this.queue=Promise.resolve();this.generation=0;this.participantRef=null;this.roomRef=null;
+  this.claimTimer=null;this.claiming=false;this.promoting=false;this.checkpointWrite=Promise.resolve();this.metaListener=null;
  }
  _listen(ref,event,fn){
   ref.on(event,fn,err=>this.onError('Firebase: '+errorText(err)));
@@ -63,8 +64,14 @@ class FirebaseOnline{
    if(this.ready){
     if(this.isHost){
       const meta=this.roomRef?.child('meta');
-      meta?.update({connected:true,lastHeartbeat:Date.now()}).catch(err=>this.onError('再接続: '+errorText(err)));
-      meta?.onDisconnect().update({connected:false}).catch(err=>this.onError('切断監視: '+errorText(err)));
+      meta?.once('value').then(snapshot=>{
+        if(!snapshot.exists()||snapshot.val().hostUid!==this.id){
+          this.ready=false;clearInterval(this.clock);
+          this.onClosed('別の参加者が新しいホストになりました。部屋に再参加してください');
+          return;
+        }
+        return meta.update({connected:true,lastHeartbeat:Date.now()}).then(()=>meta.onDisconnect().update({connected:false}));
+      }).catch(err=>this.onError('再接続: '+errorText(err)));
     }else if(this.participantRef){
       this.participantRef.set({name:this.name,joinedAt:Date.now()})
        .then(()=>this.participantRef?.onDisconnect().remove())
@@ -83,7 +90,7 @@ class FirebaseOnline{
    for(let i=0;i<6;i++){
     const code=roomCode();
     const meta=this.db.ref('rooms/'+code+'/meta');
-    const result=await meta.transaction(old=>old===null?{hostUid:this.id,createdAt:root.firebase.database.ServerValue.TIMESTAMP}:undefined,undefined,false);
+    const result=await meta.transaction(old=>old===null?{hostUid:this.id,connected:true,epoch:0,createdAt:root.firebase.database.ServerValue.TIMESTAMP}:undefined,undefined,false);
     if(result.committed){this.code=code;break}
    }
    if(!this.code)throw Error('部屋コードが重複しました。もう一度作成してください');
@@ -105,8 +112,15 @@ class FirebaseOnline{
    const members=this.roomRef.child('participants');
    this._listen(members,'child_added',snap=>{if(snap.key!==this.id)this._addMember(snap).catch(e=>this.onError(errorText(e)));});
    this._listen(members,'child_removed',snap=>{if(snap.key!==this.id)this._removeMember(snap.key);});
+   this._startClock();
+   await this._broadcast();
+   return this.code;
+  }catch(err){this.disconnect();throw Error('Firebase部屋作成: '+errorText(err))}
+ }
+ _startClock(){
+   clearInterval(this.clock);
    this.clock=setInterval(()=>{
-    if(!this.room||!this.ready)return;
+    if(!this.room||!this.ready||!this.isHost)return;
     try{
      const before=JSON.stringify({phase:this.room.phase,turn:this.room.turnIndex,round:this.room.round,pending:this.room.pending,players:this.room.players.map(p=>[p.hp,p.mp,p.gold,p.status,p.guardian])});
      GameEngine.settle(this.room);
@@ -114,11 +128,8 @@ class FirebaseOnline{
      if(before!==after||(++this.tick%10===0))this._broadcast();
     }catch(err){this.onError(errorText(err))}
    },1000);
-   await this._broadcast();
-   return this.code;
-  }catch(err){this.disconnect();throw Error('Firebase部屋作成: '+errorText(err))}
  }
- async _addMember(snap){
+ async _addMember(snap,restoring=false){
   if(!this.ready||!this.room||this.members.has(snap.key))return;
   const id=snap.key,person=snap.val();
   if(!person||typeof person.name!=='string')return;
@@ -133,7 +144,7 @@ class FirebaseOnline{
   this.members.add(id);
   const actionRef=this.roomRef.child('actions/'+id);
   // Do not replay stale queued actions after a browser refresh.
-  await actionRef.remove();
+  if(!restoring)await actionRef.remove();
   const listener=snap=>{this.queue=this.queue.then(async()=>{
    if(!this.ready||!this.members.has(id))return;
    const msg=snap.val();
@@ -166,6 +177,11 @@ class FirebaseOnline{
  async _broadcast(){
   if(!this.ready||!this.room)return;
   GameEngine.settle(this.room);
+  // Preserve an authoritative host-only checkpoint before notifying participants.
+  // Writes are ordered to avoid an older snapshot overwriting newer turns.
+  const roomSnapshot=JSON.parse(JSON.stringify(this.room));
+  this.checkpointWrite=this.checkpointWrite.catch(()=>{}).then(()=>this.roomRef.child('checkpoint').set(roomSnapshot));
+  try{await this.checkpointWrite;}catch(err){this.onError('対戦状態のバックアップに失敗: '+errorText(err));return;}
   const own=GameEngine.view(this.room,this.id);
   if(own)this.onState(own);
   const sends=[];
@@ -177,6 +193,48 @@ class FirebaseOnline{
   const failures=await Promise.allSettled(sends);
   const bad=failures.find(x=>x.status==='rejected');
   if(bad)this.onError('画面同期失敗: '+errorText(bad.reason));
+ }
+ _scheduleClaim(){
+  if(this.claimTimer||this.claiming||this.promoting||!this.ready||this.isHost)return;
+  this.onInfo('👑 ホストが離脱しました。ホスト引継ぎを準備しています');
+  this.claimTimer=setTimeout(()=>{
+   this.claimTimer=null;this._claimHost().catch(err=>this.onError('ホスト引継ぎ: '+errorText(err)));
+  },700+Math.floor(Math.random()*700));
+ }
+ async _claimHost(){
+  if(!this.ready||this.isHost||this.claiming||!this.roomRef)return;
+  this.claiming=true;
+  try{
+   const meta=this.roomRef.child('meta');
+   const result=await meta.transaction(old=>{
+    if(!old||old.connected!==false||old.hostUid===this.id)return;
+    return {...old,hostUid:this.id,connected:true,epoch:(old.epoch||0)+1,lastHeartbeat:Date.now()};
+   },undefined,false);
+   if(result.committed)await this._promote();
+  }finally{this.claiming=false;}
+ }
+ async _promote(){
+  if(this.isHost||this.promoting||!this.roomRef)return;
+  this.promoting=true;
+  try{
+   const snapshot=await this.roomRef.child('checkpoint').once('value');
+   const data=snapshot.val();
+   if(!data||data.code!==this.code||!Array.isArray(data.players)||!data.players.some(p=>p.id===this.id))
+    throw Error('引継ぎ可能な対戦データがありません。部屋を作り直してください');
+   this.room=data;this.room.host=this.id;
+   this.isHost=true;this.ready=true;
+   this.members.clear();this.members.add(this.id);
+   await this.participantRef?.onDisconnect().cancel();
+   await this.roomRef.child('meta').onDisconnect().update({connected:false});
+   const members=this.roomRef.child('participants');
+   this._listen(members,'child_added',snap=>{
+    if(snap.key!==this.id)this._addMember(snap,true).catch(err=>this.onError(errorText(err)));
+   });
+   this._listen(members,'child_removed',snap=>{if(snap.key!==this.id)this._removeMember(snap.key)});
+   this._startClock();
+   this.onInfo('👑 あなたが新ホストです。対戦を引き継ぎました');
+   await this._broadcast();
+  }finally{this.promoting=false;}
  }
  async join(code,name){
   this.disconnect();const token=this.generation;
@@ -202,7 +260,7 @@ class FirebaseOnline{
      if(err)reject(err);else resolve(this.code);
     };
     this._listen(viewRef,'value',snap=>{
-     if(this.generation!==token)return;
+     if(this.generation!==token||this.isHost)return;
      const view=snap.val();if(!view)return;
      this.ready=true;this.onState(view);this.onInfo('Firebase 対戦接続');
      finish();
@@ -213,9 +271,12 @@ class FirebaseOnline{
      if(!done)finish(Error(message));
      else this.onError('操作: '+message);
     });
-    let sawRoom=true;
     this._listen(this.roomRef.child('meta'),'value',snap=>{
-     if(!snap.exists()&&sawRoom){this.ready=false;this.onClosed('ホストが部屋を閉じました');finish(Error('部屋が終了しました'))}
+     if(!snap.exists()){this.ready=false;this.onClosed('部屋が終了しました');finish(Error('部屋が終了しました'));return;}
+     const value=snap.val();
+     if(value.hostUid===this.id&&!this.isHost&&this.ready){this._promote().catch(e=>this.onError('ホスト引継ぎ: '+errorText(e)));return;}
+     if(value.connected===false&&value.hostUid!==this.id&&this.ready&&!this.isHost)this._scheduleClaim();
+     else if(value.connected!==false){clearTimeout(this.claimTimer);this.claimTimer=null;}
     });
     deadline=setTimeout(()=>finish(Error('Firebaseの参加がタイムアウトしました。匿名認証とRulesを確認してください')),19000);
    });
@@ -240,11 +301,19 @@ class FirebaseOnline{
   this.refs.splice(0).forEach(off=>{try{off()}catch{}});
   for(const fn of this.actionRefs.values())try{fn()}catch{}
   this.actionRefs.clear();this.members.clear();
-  const ref=this.isHost?this.roomRef:this.participantRef;
-  if(ref){
-    const presence=this.isHost?this.roomRef?.child('meta'):this.participantRef;
-    presence?.onDisconnect().cancel().catch(()=>{});
-    ref.remove().catch(()=>{});
+  clearTimeout(this.claimTimer);this.claimTimer=null;
+  const room=this.roomRef,me=this.participantRef,wasHost=this.isHost;
+  if(wasHost&&room){
+    // A voluntary exit also triggers host migration. Keep the checkpoint and
+    // never delete the full room while other participants are still present.
+    this.checkpointWrite.catch(()=>{}).then(async()=>{
+      await room.child('meta').update({connected:false,lastHeartbeat:Date.now()});
+      await room.child('meta').onDisconnect().cancel();
+      await me?.remove();
+    }).catch(()=>{});
+  }else if(me){
+    me.onDisconnect().cancel().catch(()=>{});
+    me.remove().catch(()=>{});
   }
   this.roomRef=null;this.participantRef=null;this.room=null;this.ready=false;this.isHost=false;
  }
