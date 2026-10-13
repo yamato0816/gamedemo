@@ -137,7 +137,7 @@ function initCode(){const area=$('code-input'),pre=$('code-highlight'),lines=$('
  const sync=()=>{pre.innerHTML=syntaxHighlight(area.value)+'\n';lines.innerHTML=Array.from({length:Math.max(1,area.value.split('\n').length)},(_,i)=>`<span>${i+1}</span>`).join('');pre.scrollTop=area.scrollTop;pre.scrollLeft=area.scrollLeft;lines.scrollTop=area.scrollTop;};
  area.addEventListener('input',()=>{draftCode=area.value;getDraft();sync();});area.addEventListener('scroll',sync);
  area.addEventListener('keydown',ev=>{
-  if(ev.key==='Tab'){ev.preventDefault();const a=area.selectionStart,b=area.selectionEnd;area.setRangeText('    ',a,b,'end');draftCode=area.value;sync();}
+  if(ev.key==='Tab'){ev.preventDefault();const a=area.selectionStart,b=area.selectionEnd;area.setRangeText('    ',a,b,'end');draftCode=area.value;getDraft();sync();}
   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
    const line=area.value.slice(0,area.selectionStart).split('\n').pop(),indent=(line.match(/^ */)||[''])[0];
    const extra=line.trimEnd().endsWith(':')?'    ':'';
@@ -222,7 +222,7 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  getDraft();
  const keys=['name','description','type','emoji','power','cost','resource','effect','element','weight'];
  const code=keys.map(k=>'card.'+k+' = '+JSON.stringify(draft[k])).join('\n');
- const funcs=($('code-input')?.value||'').split(/^(?=def on_)/m).slice(-1)[0];
+ const current=$('code-input')?.value||'',start=current.search(/^def on_/m),funcs=start>=0?current.slice(start):'';
  draftCode=code+(funcs.startsWith('def on_')?'\n\n'+funcs:'\n\ndef on_play():\n    boost_attack(0)');
  if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}
  setEditorMode('code');toast('フォームの設定をコード化しました');break;
