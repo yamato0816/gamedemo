@@ -12,7 +12,7 @@ class Conn extends Evented{
  close(){if(!this.open)return;this.open=false;this.emit('close');if(this.other?.open){this.other.open=false;this.other.emit('close')}}
 }
 class Peer extends Evented{
- constructor(id){super();this.id=typeof id==='string'?id:`mock-${++serial}`;registry.set(this.id,this);setTimeout(()=>this.emit('open',this.id),1)}
+ constructor(id){super();assert.equal(typeof id,'string','PeerJS peers must supply local IDs to avoid /peerjs/id 404');this.id=id;registry.set(this.id,this);setTimeout(()=>this.emit('open',this.id),1)}
  connect(dest){const remote=registry.get(dest);const a=new Conn(dest),b=new Conn(this.id);a.other=b;b.other=a;
   setTimeout(()=>{if(!remote){this.emit('error',Error('peer-unavailable'));return;}remote.emit('connection',b);a.open=true;b.open=true;a.emit('open');b.emit('open')},3);
   return a;
