@@ -262,7 +262,7 @@ function crNext(r){
     if(r.turnIndex===0){
       r.round++;
       if(r.round%3===0&&Math.random()<0.7)crPhenomenon(r,'random');
-      if(r.round>=8){crLog(r,'🌪️ 終末の嵐！');crLiving(r).forEach(p=>crHit(r,p,Math.min(r.round-6,7),'終末の嵐で'));}
+      if(r.round>=8){crLog(r,'🌪️ 終末の嵐！');crLiving(r).forEach(p=>crHit(r,p,r.round-6,'終末の嵐で'));}
       if(crWinner(r))return;
     }
     if(crLive(r.players[r.turnIndex])){crStartTurn(r);return;}
