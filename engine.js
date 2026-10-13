@@ -205,7 +205,11 @@ function crRules(r,card,event,ctx){
   if(!card.script)return;
   try{
   const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,card,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0,incomingDamage:ctx.incomingDamage||0,ownDefenseCount:ctx.ownDefenseCount}, {
-    damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHit(r,p,n,'自作カードで')),
+    damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{
+      const reaction=['defend','block','guard'].includes(event)&&ctx.self!==p&&r.pending;
+      if(reaction)crQueueReaction(r,ctx.self,p,n,card.name+'の反撃',card.emoji||'🐍',(r.pending.reactionDepth||0)+1);
+      else crHit(r,p,n,'自作カードで');
+    }),
     heal:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHeal(r,p,n,'自作カードで')),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
     shield:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{p.shield=crAdd(p.shield,n)}),
@@ -338,11 +342,11 @@ function crDefend(r,p,ids){
       }else crLog(r,'🔒 反射連鎖が上限に達したため、今回の反射ダメージは発生しません');
     }else if(special.effect==='redirect'){
       const pool=crLiving(r).filter(x=>x.id!==p.id);
-      if(pool.length){const victim=pool[crRand(pool.length)];redirected=[victim];trick='転送成功！';crHit(r,victim,incoming,special.name+'の転送で');}
+      if(pool.length){const victim=pool[crRand(pool.length)];redirected=[victim];trick='転送成功！';crQueueReaction(r,p,victim,incoming,special.name+'の転送',special.emoji||'🎯',depth+1);}
     }else if(special.effect==='scatter'){
       const pool=crLiving(r).filter(x=>x.id!==p.id);
       const victims=pool.sort(()=>Math.random()-.5).slice(0,Math.min(pool.length,3));
-      victims.forEach(x=>crHit(r,x,Math.ceil(incoming/Math.max(1,victims.length)),special.name+'の分散で'));
+      victims.forEach(x=>crQueueReaction(r,p,x,Math.ceil(incoming/Math.max(1,victims.length)),special.name+'の分散',special.emoji||'🎲',depth+1));
       redirected=victims;trick='攻撃を分散！';
     }else if(special.effect==='absorb'){
       const gained=Math.ceil(incoming/2);p.mp=crAdd(p.mp,gained);trick='魔力を吸収！';
