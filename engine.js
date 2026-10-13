@@ -276,9 +276,10 @@ function crDefend(r,p,ids){
   const cards=ids.length?crSelect(p,ids,'defense',1,p.hand.length):[];
   if(!crCanPay(p,cards))throw Error('MPまたはコイン不足');
   const from=r.players.find(x=>x.id===pending.from);
+  const defenseHandCount=p.hand.filter(c=>c.type==='defense').length;
   crSpend(p,cards);crTake(r,p,cards);
   const guardBonus={value:0};
-  cards.forEach(c=>crRules(r,c,'guard',{self:p,target:from,guardBonus,incomingDamage:pending.damage}));
+  cards.forEach(c=>crRules(r,c,'guard',{self:p,target:from,guardBonus,incomingDamage:pending.damage,ownDefenseCount:defenseHandCount}));
   const power=crSafeDamage(cards.reduce((n,c)=>n+c.power+(c.element===pending.element&&pending.element!=='none'?2:0),0)+guardBonus.value);
   const block=Math.max(0,power-pending.pierce);
   const special=cards.find(c=>['reflect','reflect_full','reflect_double','redirect','scatter','nullify','absorb'].includes(c.effect));
