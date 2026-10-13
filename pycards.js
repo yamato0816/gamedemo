@@ -132,18 +132,18 @@ function run(program,event,ctx,actions){
       case 'incoming_damage':return ctx.incomingDamage||ctx.r.pending?.damage||0;
       case 'round_number':return ctx.r.round;
       case 'has_status':return !!(from(check(arg(0,'self'),['self','target'],'対象'))?.status?.[check(arg(1,''),ST,'状態異常')]);
-      case 'randint':{let a=cap(arg(0,0),-30,30),b=cap(arg(1,10),-30,30);if(a>b)[a,b]=[b,a];return a+Math.floor(Math.random()*(b-a+1));}
+      case 'randint':{let a=cap(arg(0,0),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER),b=cap(arg(1,10),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER);if(a>b)[a,b]=[b,a];return cap(a+Math.floor(Math.random()*(b-a+1)),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER);}
       case 'chance':return Math.random()<Math.max(0,Math.min(1,n(arg(0,0))));
       case 'min':return Math.min(...args.map(n));case 'max':return Math.max(...args.map(n));
       case 'abs':return Math.abs(n(arg(0,0)));case 'int':return Math.trunc(n(arg(0,0)));case 'round':return Math.round(n(arg(0,0)));
     }
     if(kind!=='effect')fail(f+' は計算式内で使えません');
-    if(++count>20)fail('1回に実行できる効果は20回までです');
-    if(f==='damage'||f==='heal'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,f==='draw'?18:Number.MAX_SAFE_INTEGER));
-    else if(f==='status')actions.status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,1),1,5));
+    if(++count>120)fail('処理保護：1回の発動は120効果までです');
+    if(f==='damage'||f==='heal'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,Number.MAX_SAFE_INTEGER));
+    else if(f==='status')actions.status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,1),1,Number.MAX_SAFE_INTEGER));
     else if(f==='resource')actions.resource(who(arg(0,'self')),check(arg(1,'mp'),['mp','gold'],'資源'),cap(arg(2,0),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER));
     else if(f==='cleanse')actions.cleanse(who(arg(0,'self')));
-    else if(f==='summon')actions.summon(who(arg(0,'self')),check(arg(1,'sprite'),GD,'守護神'),cap(arg(2,3),1,5));
+    else if(f==='summon')actions.summon(who(arg(0,'self')),check(arg(1,'sprite'),GD,'守護神'),cap(arg(2,3),1,Number.MAX_SAFE_INTEGER));
     else if(f==='phenomenon')actions.phenomenon(check(arg(0,'random'),PH,'超常現象'));
     else if(f==='steal')actions.steal(check(arg(0,'gold'),['mp','gold'],'資源'),cap(arg(1,1),0,Number.MAX_SAFE_INTEGER));
     else if(f==='boost_attack'||f==='boost_defense')actions[f](cap(arg(0,0),0,Number.MAX_SAFE_INTEGER));
