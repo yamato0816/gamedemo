@@ -37,7 +37,7 @@ class FirebaseOnline{
   this.ready=false;this.isHost=false;this.room=null;this.code='';this.id='';
   this.db=null;this.app=null;this.clock=null;this.tick=0;this.refs=[];this.actionRefs=new Map();
   this.members=new Set();this.queue=Promise.resolve();this.generation=0;this.participantRef=null;this.roomRef=null;
-  this.claimTimer=null;this.claiming=false;this.promoting=false;this.checkpointWrite=Promise.resolve();this.metaListener=null;
+  this.claimTimer=null;this.claiming=false;this.promoting=false;this.checkpointWrite=Promise.resolve();this.metaListener=null;this.absenceTimers=new Map();
  }
  _listen(ref,event,fn){
   ref.on(event,fn,err=>this.onError('Firebase: '+errorText(err)));
@@ -142,6 +142,7 @@ class FirebaseOnline{
    await this.roomRef.child('errors/'+id).set({message:String(e.message).slice(0,150)});
    return;
   }
+  clearTimeout(this.absenceTimers.get(id));this.absenceTimers.delete(id);
   this.members.add(id);
   const actionRef=this.roomRef.child('actions/'+id);
   // Do not replay stale queued actions after a browser refresh.
@@ -170,10 +171,16 @@ class FirebaseOnline{
   const p=this.room.players.find(x=>x.id===id);
   if(!p)return;
   try{
-   // Treat voluntary disconnection as surrender; otherwise an offline
-   // player can permanently block the turn after host migration.
-   GameEngine.leave(this.room,id);
-   this._broadcast();
+   // Brief disconnections are not surrender: let the player reconnect
+   // before the next host removes their seat.
+   clearTimeout(this.absenceTimers.get(id));
+   this.absenceTimers.set(id,setTimeout(()=>{
+     this.absenceTimers.delete(id);
+     if(!this.room||this.members.has(id))return;
+     try{GameEngine.leave(this.room,id);this._broadcast();}
+     catch(err){this.onError('退出判定: '+errorText(err))}
+   },12000));
+   this.onInfo(p.name+' の接続待ち（12秒間は対戦状態を保持）');
   }catch(err){this.onError(errorText(err))}
  }
  async _broadcast(){
@@ -227,7 +234,15 @@ class FirebaseOnline{
    // A crashed host has already disappeared from participants; surrender that
    // player so the next turn never waits for someone whose tab is gone.
    const online=(await this.roomRef.child('participants').once('value')).val()||{};
-   for(const p of [...this.room.players])if(!p.bot&&!online[p.id])GameEngine.leave(this.room,p.id);
+   for(const p of [...this.room.players])if(!p.bot&&!online[p.id]){
+     const id=p.id;
+     this.absenceTimers.set(id,setTimeout(()=>{
+       this.absenceTimers.delete(id);
+       if(!this.room||this.members.has(id))return;
+       try{GameEngine.leave(this.room,id);this._broadcast();}
+       catch(err){this.onError('切断者の処理: '+errorText(err))}
+     },12000));
+   }
    this.isHost=true;this.ready=true;
    this.members.clear();this.members.add(this.id);
    await this.participantRef?.onDisconnect().cancel();
@@ -308,6 +323,7 @@ class FirebaseOnline{
   this.refs.splice(0).forEach(off=>{try{off()}catch{}});
   for(const fn of this.actionRefs.values())try{fn()}catch{}
   this.actionRefs.clear();this.members.clear();
+  for(const timer of this.absenceTimers.values())clearTimeout(timer);this.absenceTimers.clear();
   clearTimeout(this.claimTimer);this.claimTimer=null;
   const room=this.roomRef,me=this.participantRef,wasHost=this.isHost;
   if(wasHost&&room){
