@@ -89,8 +89,19 @@ function play(){const cards=chosenCards();if(!cards.length)return;if(amDefending
  if(!amTurn())return;const atk=cards.every(c=>c.type==='attack');chosen.clear();if(atk)act('attack',{cards:cards.map(c=>c.uid),target});
  else if(cards.length===1)act('use',{card:cards[0].uid,target});else toast('攻撃以外は1枚ずつ選んでください',true);}
 const FULL_CARD_TEMPLATE="card.name = \"全手札を断つ巨剣\"\ncard.description = \"相手のすべての手札を調査し、防御札の威力の総和を攻撃に加算する。\"\ncard.type = \"attack\"\ncard.emoji = \"⚔️\"\ncard.power = 100\ncard.cost = 5\ncard.resource = \"mp\"\ncard.effect = \"normal\"\ncard.element = \"dark\"\ncard.weight = 3\n\ndef on_play():\n    bonus = 0\n    for item in target.hand:\n        if item.type == \"defense\":\n            bonus += item.power\n    boost_attack(bonus)\n\ndef on_hit():\n    heal(\"self\", damage_dealt() // 2)";
-function openEditor(){draft={...initial};draftCode=draft.script;editorMode='form';modal='editor';renderModal();}
-function getDraft(){for(const k of ['name','emoji','description','type','effect','element','cost','power','weight']){const v=$('edit-'+k);if(v)draft[k]=['cost','power','weight'].includes(k)?Number(v.value):v.value;}draft.script=$('code-input')?.value||'';return draft;}
+function openEditor(){
+ const saved=load('cr3-editor-draft',null);
+ draft=saved?.data||{...initial};draftCode=saved?.code??draft.script;
+ editorMode=saved?.mode||'form';modal='editor';renderModal();
+}
+function getDraft(){
+ for(const k of ['name','emoji','description','type','effect','element','cost','power','weight']){
+  const v=$('edit-'+k);if(v)draft[k]=['cost','power','weight'].includes(k)?Number(v.value):v.value;
+ }
+ draft.script=$('code-input')?.value??draftCode;
+ save('cr3-editor-draft',{data:draft,code:draft.script,mode:editorMode});
+ return draft;
+}
 function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><div class="preview-top"><span>✦ ${TYPE[draft.type][0]}</span><span>${e(ELEMENT[draft.element]||'無')}属性</span></div><div class="preview-emoji">${e(draft.emoji||'✨')}</div><h2>${e(draft.name||'新しいカード')}</h2><p>${e(draft.description||'あなただけのカードを創造しよう。')}</p><div class="preview-bottom"><b>威力 ${Number(draft.power)||0}</b><b>コスト ${Number(draft.cost)||0} MP</b></div></div>`;}
 const FX={attack:[['normal','通常'],['drain','HP吸収'],['poison','毒'],['burn','炎上'],['pierce','防御貫通'],['wild','ギャンブル'],['freeze','凍結'],['chain','連鎖攻撃'],['double_hit','追撃'],['siphon','MP強奪'],['guard_hunt','防御札の枚数×威力']],defense:[['normal','通常'],['reflect','等倍反射'],['reflect_full','全反射'],['reflect_double','2倍反射'],['redirect','ランダム転送'],['scatter','攻撃分散'],['nullify','完全無効'],['absorb','魔力吸収'],['counter','反撃'],['mana','MP回復']],magic:[['blast','攻撃魔法'],['drain','HP吸収魔法'],['heal','回復'],['poison','毒'],['freeze','凍結'],['curse','呪い'],['mana','MP補助'],['swap_hp','HP交換'],['mass_poison','全体毒'],['steal_mp','MP強奪'],['scramble','手札一斉交換']],item:[['heal','回復'],['mana','MP回復'],['gold','お金増加'],['draw','カード補充'],['cleanse','浄化'],['lottery','くじ']],guardian:[['sprite','妖精'],['phoenix','不死鳥'],['turtle','玄武'],['storm','雷神'],['muse','月の女神']],omen:[['random','ランダム'],['blessing','祝福'],['meteor','流星雨'],['exchange','資源交換']]};
 const input=(id,label,value,kind='text',opts={})=>`<label class="forge-field"><span>${label}</span><input id="edit-${id}" type="${kind}" ${opts.max?'max="'+opts.max+'"':''} ${kind==='number'?'min="0"':''} value="${e(value)}" ${opts.maxLength?'maxlength="'+opts.maxLength+'"':''}/></label>`;
@@ -104,7 +115,7 @@ function renderModal(){const parent=$('modal-root');if(!modal){parent.innerHTML=
  <div class="three-col">${input('power','威力（上限なし）',draft.power,'number')}${input('cost','消費MP',draft.cost,'number')}${input('weight','出現頻度',draft.weight,'number')}</div>
  ${select('element','属性',Object.entries(ELEMENT),draft.element)}${input('description','カードの説明',draft.description,'text',{maxLength:8000})}
  </div></div><div class="forge-right" id="forge-code-panel" role="tabpanel"><div class="code-title"><div><span class="python-chip">🐍 Python風スクリプト</span><h3>効果プログラム（任意）</h3></div><button class="secondary small" data-action="validate">✓ 構文チェック</button><button class="primary small" data-action="test-code">🧪 実行テスト</button></div>
- <div class="forge-mobile-actions"><button class="secondary small" data-action="code-only">📝 完全なカード例</button><button class="secondary small" data-action="snippet" data-id="shieldhunt">🎯 盾狩り</button><button class="secondary small" data-action="snippet" data-id="counter">↩️ 反撃</button></div><div class="snippet-row"><span>テンプレート：</span><button data-action="snippet" data-id="lifesteal">吸血</button><button data-action="snippet" data-id="gamble">ギャンブル</button><button data-action="snippet" data-id="guardian">守護神</button><button data-action="snippet" data-id="counter">反撃</button><button data-action="snippet" data-id="shieldhunt">盾狩り</button><button data-action="snippet" data-id="superguard">超防御</button></div>
+ <div class="forge-mobile-actions"><button class="secondary small" data-action="code-only">📝 完全なカード例</button><button class="secondary small" data-action="form-to-code">🧩 フォームからコード生成</button><button class="secondary small" data-action="snippet" data-id="shieldhunt">🎯 盾狩り</button><button class="secondary small" data-action="snippet" data-id="counter">↩️ 反撃</button></div><div class="snippet-row"><span>テンプレート：</span><button data-action="snippet" data-id="lifesteal">吸血</button><button data-action="snippet" data-id="gamble">ギャンブル</button><button data-action="snippet" data-id="guardian">守護神</button><button data-action="snippet" data-id="counter">反撃</button><button data-action="snippet" data-id="shieldhunt">盾狩り</button><button data-action="snippet" data-id="superguard">超防御</button></div>
  <div class="forge-quick-keys" aria-label="コード入力補助"><button data-action="insert" data-code="    ">⇥4字</button><button data-action="insert" data-code=":">:</button><button data-action="insert" data-code="()">()</button><button data-action="insert" data-code="&quot;&quot;">“”</button><button data-action="insert" data-code="def on_play():&#10;    ">▶ on_play</button><button data-action="insert" data-code="def on_guard():&#10;    ">🛡 on_guard</button><button data-action="insert" data-code="for item in target.hand:&#10;    ">♻ for</button></div><div class="code-window"><div class="code-toolbar"><span class="three-dots"><i></i><i></i><i></i></span><b>card_effect.py</b><span>安全なPython構文サブセット</span></div><div class="code-region"><div id="code-lines" class="line-numbers"></div><pre id="code-highlight" aria-hidden="true"></pre><textarea id="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Python効果プログラム">${e(draftCode)}</textarea></div></div>
  <div class="code-diagnostic" id="code-feedback">✦ 書いたコードは構文チェックの後、実行テストできます。</div><pre id="code-test-output" class="code-diagnostic" aria-live="polite" style="display:none;white-space:pre-wrap;overflow:auto;max-height:220px;font:12px/1.5 monospace"></pre>
  <div class="api-heading">オブジェクト・関数ガイド</div><div class="forge-help-open"><b>📘 card / self / target / players</b><p>card.name, card.type, card.power, card.cost, self.hp, target.mp, target.hand、item.type, item.power などを参照できます。</p><p>for item in target.hand: で全札を走査できます。len(target.hand) は枚数、count_cards(target.hand, "defense") は防御札枚数、sum_power(target.hand, "defense") は防御札の総威力です。</p><p>API一覧：<a href="CARD_API.md" target="_blank" rel="noopener">CARD_API.md</a></p></div><div class="api-heading">使用できる関数 <small>押すとコードへ挿入</small></div><div class="api-pills">${['damage_dealt()','damage_taken()','len(target.hand)','count_cards(target.hand, "defense")','sum_power(target.hand, "attack")','target.hand[0].type','card.power','target.hp','target_defense_cards()','my_defense_cards()','incoming_damage()','boost_attack(10)','boost_defense(10)','my_hp()','target_hp()','my_mp()','target_mp()','round_number()','chance(0.5)','randint(1, 6)','damage("target", 5)','heal("self", 5)','status("target", "poison", 2)','shield("self", 5)','summon("self", "phoenix", 3)','resource("self", "mp", 3)','draw("self", 1)','discard("target", "defense", 3)','swap_hands()','multiply_attack(3)','phenomenon("random")'].map(s=>`<button data-action="insert" data-code="${e(s)}">${e(s)}</button>`).join('')}</div>
@@ -114,6 +125,7 @@ function renderModal(){const parent=$('modal-root');if(!modal){parent.innerHTML=
 function syntaxHighlight(src){return e(src).replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g,'<span class="sy-string">$1</span>').replace(/\b(def|if|elif|else|and|or|not|True|False|None)\b/g,'<span class="sy-keyword">$1</span>').replace(/\b(on_play|on_hit|on_defend|on_block|on_guard|on_turn_start|target_defense_cards|my_defense_cards|incoming_damage|boost_attack|boost_defense|damage_dealt|damage_taken|heal|damage|shield|status|summon|chance|randint|min|max|my_hp|target_hp|resource)\b/g,'<span class="sy-call">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="sy-num">$1</span>');}
 function setEditorMode(mode){
  editorMode=mode;const layout=document.querySelector('.forge-layout');if(!layout)return;
+ save('cr3-editor-draft',{data:draft,code:$('code-input')?.value??draftCode,mode});
  layout.classList.toggle('forge-code-mode',mode==='code');layout.classList.toggle('forge-form-mode',mode==='form');
  document.querySelectorAll('.forge-tabs [role="tab"]').forEach(btn=>{
  const active=btn.dataset.action===(mode==='code'?'mode-code':'mode-form');
@@ -123,7 +135,7 @@ function setEditorMode(mode){
 }
 function initCode(){const area=$('code-input'),pre=$('code-highlight'),lines=$('code-lines');if(!area)return;
  const sync=()=>{pre.innerHTML=syntaxHighlight(area.value)+'\n';lines.innerHTML=Array.from({length:Math.max(1,area.value.split('\n').length)},(_,i)=>`<span>${i+1}</span>`).join('');pre.scrollTop=area.scrollTop;pre.scrollLeft=area.scrollLeft;lines.scrollTop=area.scrollTop;};
- area.addEventListener('input',()=>{draftCode=area.value;sync();});area.addEventListener('scroll',sync);
+ area.addEventListener('input',()=>{draftCode=area.value;getDraft();sync();});area.addEventListener('scroll',sync);
  area.addEventListener('keydown',ev=>{
   if(ev.key==='Tab'){ev.preventDefault();const a=area.selectionStart,b=area.selectionEnd;area.setRangeText('    ',a,b,'end');draftCode=area.value;sync();}
   if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){
@@ -191,7 +203,7 @@ function saveCard(){getDraft();if(draft.script.trim()&&!validateCode(false)){toa
  let normalized;
  try{normalized=GameEngine.card(draft,name||'作者');}catch(err){toast(err.message,true);return;}
  draft={...draft,...Object.fromEntries(['name','description','type','emoji','power','cost','resource','element','weight','effect'].map(k=>[k,normalized[k]]))};
- custom.push({...draft,localId:crypto.randomUUID()});save('cr3-cards',custom);modal='';renderModal();render();toast('「'+draft.name+'」を保存しました！ 対戦部屋から追加できます。');}
+ custom.push({...draft,localId:crypto.randomUUID()});save('cr3-cards',custom);localStorage.removeItem('cr3-editor-draft');modal='';renderModal();render();toast('「'+draft.name+'」を保存しました！ 対戦部屋から追加できます。');}
 function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card};delete data.localId;act('publish',{card:data});}
 function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}$('forge-preview').innerHTML=editorCard();}
 function editCodeInsert(str){const el=$('code-input');if(!el)return;el.focus();const start=el.selectionStart,end=el.selectionEnd;el.setRangeText(str,start,end,'end');el.dispatchEvent(new Event('input'));}
@@ -206,8 +218,23 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  case 'card':selectCard(id);break;case 'target':target=id;render();break;case 'play':play();break;case 'defend':play();break;case 'take-hit':chosen.clear();act('defend',{cards:[]});break;
  case 'pass':act('pass');break;case 'pray':act('pray');break;case 'trade':act('trade',{mode:'heal'});break;
  case 'publish':publishCard(id);break;case 'remove':act('removeCard',{id});break;case 'delete':custom=custom.filter(c=>c.localId!==id);save('cr3-cards',custom);render();break;
+ case 'form-to-code':{
+ getDraft();
+ const keys=['name','description','type','emoji','power','cost','resource','effect','element','weight'];
+ const code=keys.map(k=>'card.'+k+' = '+JSON.stringify(draft[k])).join('\n');
+ const funcs=($('code-input')?.value||'').split(/^(?=def on_)/m).slice(-1)[0];
+ draftCode=code+(funcs.startsWith('def on_')?'\n\n'+funcs:'\n\ndef on_play():\n    boost_attack(0)');
+ if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}
+ setEditorMode('code');toast('フォームの設定をコード化しました');break;
+ }
  case 'code-only':setEditorMode('code');draftCode=FULL_CARD_TEMPLATE;if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}toast('名前・説明・威力・コストまで、コードだけで指定できます');break;case 'mode-form':getDraft();setEditorMode('form');break;case 'mode-code':getDraft();setEditorMode('code');break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
- case 'snippet':getDraft();draftCode=TEMPLATES[id];$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));break;
+ case 'snippet':{
+ getDraft();
+ const current=draftCode||'';
+ const header=current.split(/^def on_/m)[0];
+ draftCode=(header.includes('card.')?header.trimEnd()+'\n\n':'')+TEMPLATES[id];
+ $('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));break;
+ }
  case 'insert':editCodeInsert(btn.dataset.code);break;
  } }catch(err){toast(err.message,true);}});
 $('brand').addEventListener('click',()=>{if(state){toast('対戦中は「退出」でトップに戻れます');return;}render();});
