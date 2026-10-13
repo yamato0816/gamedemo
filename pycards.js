@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const EVENTS=['play','hit','defend','block','turn_start','guard'];
-const EFFECTS=['damage','heal','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense'];
+const EFFECTS=['damage','heal','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack'];
 const READS=['len','count_cards','sum_power','card_at','damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
 const WHOS=['self','target','everyone','all_enemies','random_enemy'];
 const ST=['poison','burn','freeze','curse','weak'];
@@ -175,6 +175,9 @@ function run(program,event,ctx,actions){
     else if(f==='phenomenon')actions.phenomenon(check(arg(0,'random'),PH,'超常現象'));
     else if(f==='steal')actions.steal(check(arg(0,'gold'),['mp','gold'],'資源'),cap(arg(1,1),0,Number.MAX_SAFE_INTEGER));
     else if(f==='boost_attack'||f==='boost_defense')actions[f](cap(arg(0,0),0,Number.MAX_SAFE_INTEGER));
+    else if(f==='multiply_attack')actions.multiply_attack(cap(arg(0,1),0,Number.MAX_SAFE_INTEGER));
+    else if(f==='discard')actions.discard(who(arg(0,'target')),check(arg(1,'defense'),['attack','defense','magic','item','guardian','omen','any'],'種類'),cap(arg(2,1),0,1024));
+    else if(f==='swap_hands')actions.swap_hands();
     return 0;
   }
   function evaluate(node){tick();if(!node||typeof node!=='object')fail('不正な式');
