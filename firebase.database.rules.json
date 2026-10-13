@@ -1,0 +1,42 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$room": {
+        ".read": "auth != null && data.child('meta/hostUid').val() === auth.uid",
+        ".write": "auth != null && data.child('meta/hostUid').val() === auth.uid",
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((!data.exists() && newData.child('hostUid').val() === auth.uid) || (data.child('hostUid').val() === auth.uid && newData.child('hostUid').val() === auth.uid))",
+          ".validate": "newData.hasChildren(['hostUid','createdAt']) && newData.child('hostUid').isString() && newData.child('createdAt').isNumber()"
+        },
+        "participants": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)",
+            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($room).child('meta').exists()",
+            ".validate": "newData.hasChildren(['name','joinedAt']) && newData.child('name').isString() && newData.child('name').val().length <= 14 && newData.child('joinedAt').isNumber()"
+          }
+        },
+        "views": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)"
+          }
+        },
+        "errors": {
+          "$uid": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('meta').child('hostUid').val() === auth.uid)"
+          }
+        },
+        "actions": {
+          "$uid": {
+            "$message": {
+              ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($room).child('participants').child($uid).exists() && !data.exists()",
+              ".validate": "newData.hasChildren(['action','createdAt']) && newData.child('createdAt').isNumber() && newData.child('action').hasChildren(['type']) && newData.child('action').child('type').isString()"
+            }
+          }
+        }
+      }
+    }
+  }
+}
