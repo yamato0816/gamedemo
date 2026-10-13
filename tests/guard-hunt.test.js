@@ -60,7 +60,12 @@ const clones=(card,n,prefix,power=card.power)=>Array.from({length:n},(_,i)=>({..
  game.apply(r,from.id,{type:'attack',cards:['atk'],target:to.id});
  game.apply(r,to.id,{type:'defend',cards:['mirror0','mirror1']});
  assert.equal(to.hp,40);
- assert.equal(from.hp,28);
+ assert.equal(from.hp,40,'反射で即死せず防御のチャンスがある');
+ assert.equal(r.pending.to,from.id);
+ game.apply(r,from.id,{type:'defend',cards:[]});
+ assert.equal(r.pending.to,from.id);
+ game.apply(r,from.id,{type:'defend',cards:[]});
+ assert.equal(from.hp,28,'2回の反射を無防備に受ければダメージが入る');
 }
 {
  const r=room(),from=actor(r),to=other(r,from);
