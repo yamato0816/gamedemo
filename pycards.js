@@ -111,8 +111,8 @@ function run(program,event,ctx,actions){
   const stmts=program.handlers?.[event];if(!stmts)return {actions:0};
   const vars=Object.create(null);let steps=0,count=0;
   const tick=()=>{if(++steps>550)fail('処理数の上限を超えました');};
-  const n=v=>{const num=Number(v);return Number.isFinite(num)?Math.max(-1e5,Math.min(1e5,num)):0;};
-  const cap=(v,lo=0,hi=20)=>Math.max(lo,Math.min(hi,Math.round(n(v))));
+  const n=v=>{const num=Number(v);return Number.isFinite(num)?Math.max(-Number.MAX_SAFE_INTEGER,Math.min(Number.MAX_SAFE_INTEGER,num)):0;};
+  const cap=(v,lo=0,hi=Number.MAX_SAFE_INTEGER)=>Math.max(lo,Math.min(hi,Math.round(n(v))));
   const check=(val,list,msg)=>{if(!list.includes(val))fail('無効な'+msg+': '+String(val));return val;};
   const who=v=>check(v,WHOS,'対象');
   function fun(f,args,kind){
@@ -136,13 +136,13 @@ function run(program,event,ctx,actions){
     }
     if(kind!=='effect')fail(f+' は計算式内で使えません');
     if(++count>20)fail('1回に実行できる効果は20回までです');
-    if(f==='damage'||f==='heal'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,f==='draw'?4:20));
+    if(f==='damage'||f==='heal'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,f==='draw'?18:Number.MAX_SAFE_INTEGER));
     else if(f==='status')actions.status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,1),1,5));
-    else if(f==='resource')actions.resource(who(arg(0,'self')),check(arg(1,'mp'),['mp','gold'],'資源'),cap(arg(2,0),-20,20));
+    else if(f==='resource')actions.resource(who(arg(0,'self')),check(arg(1,'mp'),['mp','gold'],'資源'),cap(arg(2,0),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER));
     else if(f==='cleanse')actions.cleanse(who(arg(0,'self')));
     else if(f==='summon')actions.summon(who(arg(0,'self')),check(arg(1,'sprite'),GD,'守護神'),cap(arg(2,3),1,5));
     else if(f==='phenomenon')actions.phenomenon(check(arg(0,'random'),PH,'超常現象'));
-    else if(f==='steal')actions.steal(check(arg(0,'gold'),['mp','gold'],'資源'),cap(arg(1,1)));
+    else if(f==='steal')actions.steal(check(arg(0,'gold'),['mp','gold'],'資源'),cap(arg(1,1),0,Number.MAX_SAFE_INTEGER));
     return 0;
   }
   function evaluate(node){tick();if(!node||typeof node!=='object')fail('不正な式');
