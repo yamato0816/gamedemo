@@ -2,12 +2,74 @@
 (function(root){
 'use strict';
 const EVENTS=['play','hit','defend','block','turn_start','guard'];
-const EFFECTS=['damage','heal','set_hp','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack'];
-const READS=['len','count_cards','sum_power','card_at','damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
+const EFFECTS=['damage','heal','set_hp','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack','set_resource','set_shield','set_status','remove_status','heal_percent','draw_type','duplicate','clear_hand','give','swap_stat','shuffle_hand','popup','battle_log'];
+const READS=['len','count_cards','sum_power','card_at','count_element','count_effect','sum_cost','highest_power','lowest_power','random_card','hand_count','hand_power','hand_cost','alive_count','enemy_count','total_hp','total_shield','status_turns','guardian_turns','has_guardian','is_alive','random_enemy','player_at','turn_player','is_my_turn','format','str','floor','ceil','sqrt','clamp','contains','damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
 const WHOS=['self','target','everyone','all_enemies','random_enemy'];
 const ST=['poison','burn','freeze','curse','weak'];
 const GD=['phoenix','turtle','sprite','storm','muse'];
 const PH=['random','blessing','meteor','exchange','silence','fog','mana_rain','earthquake'];
+const CARD_TYPES=['attack','defense','magic','item','guardian','omen'];
+const POPUP_THEMES=['magic','danger','success','gold','info'];
+// A public catalogue drives Monaco suggestions and the mobile insert palette.
+const API_DOCS={
+ len:['array','配列または文字列の長さ'],count_cards:['target.hand, "defense"','指定したカード種類の枚数'],
+ sum_power:['target.hand, "attack"','指定種類の威力合計'],sum_cost:['target.hand, "attack"','指定種類のコスト合計'],
+ card_at:['target.hand, 0','指定位置のカードを取得'],
+ count_element:['target.hand, "fire"','特定属性のカード枚数'],count_effect:['target.hand, "heal"','特定効果のカード枚数'],
+ highest_power:['target.hand, "attack"','指定種類の最大威力（該当なしなら0）'],lowest_power:['target.hand, "defense"','指定種類の最小威力（該当なしなら0）'],
+ random_card:['target.hand','手札からランダムなカードを選ぶ'],
+ hand_count:['"target", "defense"','対象の防御札の枚数、種類を省略すると全手札'],
+ hand_power:['"target", "attack"','対象手札の威力合計'],hand_cost:['"target", "magic"','対象手札のコスト合計'],
+ alive_count:['','生存プレイヤーの人数'],enemy_count:['','生存する敵の人数'],
+ total_hp:['','生存プレイヤーのHP合計'],total_shield:['','生存プレイヤーのバリア合計'],
+ status_turns:['"target", "poison"','対象の状態異常残りターン'],
+ guardian_turns:['"self"','守護神の残りターン'],
+ has_guardian:['"target", "phoenix"','指定守護神がいるか（省略で種類問わず）'],
+ is_alive:['"target"','対象が生存しているか'],
+ random_enemy:['','生存中の敵をランダムで取得'],
+ player_at:['0','全プレイヤーの指定位置を取得'],
+ turn_player:['','現在手番のプレイヤーを取得'],is_my_turn:['','自分のターンか'],
+ format:['"残りHP {target.hp} / 倍率 {bonus}"','波括弧内の式を実際の値に置換'],
+ str:['target.hp','数値や真偽値を文字列に変換'],
+ floor:['value','小数点以下を切り捨て'],ceil:['value','小数点以下を切り上げ'],
+ sqrt:['value','平方根'],clamp:['value, 0, 100','指定範囲に数値を収める'],
+ contains:['"fire", "ir"','文字列や配列に指定値が含まれるか'],
+ damage_dealt:['','与えた実ダメージ'],damage_taken:['','受けた実ダメージ'],
+ my_hp:['','自分のHP'],target_hp:['','対象のHP'],
+ my_mp:['','自分のMP'],target_mp:['','対象のMP'],my_gold:['','自分のGold'],target_gold:['','対象のGold'],
+ my_defense_cards:['','自分の防御札枚数'],target_defense_cards:['','対象の防御札枚数'],
+ incoming_damage:['','防御前の攻撃威力'],round_number:['','現在のラウンド'],
+ has_status:['"target", "poison"','状態異常の有無'],
+ randint:['1, 6','指定範囲のランダム整数'],chance:['0.5','指定確率でTrue'],
+ min:['a, b','最小値'],max:['a, b','最大値'],abs:['value','絶対値'],
+ int:['value','整数部分'],round:['value','四捨五入'],
+ damage:['"target", 100','指定対象にダメージ'],heal:['"self", 100','HPを回復'],
+ set_hp:['"everyone", 1','HPを指定値に設定（バリアを通さない）'],
+ shield:['"self", 100','バリアを追加'],set_shield:['"self", 100','バリアを指定値に設定'],
+ resource:['"self", "gold", 100','MPまたはGoldを増減'],
+ set_resource:['"self", "mp", 500','MPまたはGoldを指定値に設定'],
+ status:['"target", "poison", 3','状態異常を付与'],
+ set_status:['"target", "poison", 1','残りターンを指定値に設定'],
+ remove_status:['"target", "poison"','指定した状態異常だけ解除'],
+ heal_percent:['"self", 50','現在HPの指定パーセントを回復'],
+ draw:['"self", 3','カードを引く'],
+ draw_type:['"self", "defense", 3','指定種類のカードを引く'],
+ duplicate:['"self", "attack", 2','対象の手札にある指定種類のカードを複製'],
+ discard:['"target", "defense", 2','指定種類のカードを破棄'],
+ clear_hand:['"target"','対象の手札を全部破棄'],
+ shuffle_hand:['"self"','手札の順番をシャッフル'],
+ swap_hands:['','対象と手札を丸ごと交換'],swap_stat:['"hp"','自分と対象のHP/MP/Gold/バリアを交換'],
+ give:['"target", "gold", 100','自分のGold/MPを対象へ渡す'],
+ steal:['"mp", 50','相手のMP/Goldを奪う'],
+ cleanse:['"self"','状態異常をすべて解除'],
+ summon:['"self", "phoenix", 3','守護神を召喚'],
+ phenomenon:['"meteor"','超常現象を発生'],
+ boost_attack:['100','現在の攻撃威力に加算'],
+ multiply_attack:['3','現在の攻撃威力を指定倍率に'],
+ boost_defense:['100','現在の防御力に加算'],
+ popup:['"天罰発動！", "HP {target.hp} / 倍率 {bonus}", "⚡", "danger"','全員にアニメーション付きのオリジナルポップを表示。{式}を置換'],
+ battle_log:['"ボーナス {bonus} を獲得！"','カスタム戦闘ログを全員へ表示']
+};
 const fail=(msg,line)=>{throw Error((line?`行 ${line}: `:'')+msg);};
 function tokenize(src,line){
   const tokens=[];let i=0;
@@ -130,7 +192,7 @@ function run(program,event,ctx,actions){
   const vars=Object.create(null);let steps=0,count=0;
   // Snapshots, never expose live mutable game objects or the Firebase view.
   const cardView=c=>({name:String(c.name||''),description:String(c.description||''),type:String(c.type||''),effect:String(c.effect||''),power:Number(c.power)||0,cost:Number(c.cost)||0,resource:String(c.resource||'mp'),weight:Number(c.weight)||0,element:String(c.element||''),emoji:String(c.emoji||'')});
-  const playerView=p=>p?({id:String(p.id||''),name:String(p.name||''),hp:Number(p.hp)||0,mp:Number(p.mp)||0,gold:Number(p.gold)||0,shield:Number(p.shield)||0,status:{...(p.status||{})},hand:Array.isArray(p.hand)?p.hand.map(cardView):[]}):null;
+  const playerView=p=>p?({id:String(p.id||''),name:String(p.name||''),hp:Number(p.hp)||0,mp:Number(p.mp)||0,gold:Number(p.gold)||0,shield:Number(p.shield)||0,status:{...(p.status||{})},guardian:p.guardian?{kind:String(p.guardian.kind||''),turns:Number(p.guardian.turns)||0}:null,hand:Array.isArray(p.hand)?p.hand.map(cardView):[]}):null;
   vars.self=playerView(ctx.self);vars.target=playerView(ctx.target);
   vars.card=cardView(ctx.card||{});
   vars.players=(ctx.r?.players||[]).map(playerView);
