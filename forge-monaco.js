@@ -116,13 +116,16 @@ function installCompletions(m){
    const word=model.getWordUntilPosition(position);
    const range={startLineNumber:position.lineNumber,endLineNumber:position.lineNumber,startColumn:word.startColumn,endColumn:word.endColumn};
    const match=prefix.match(/\b(card|self|target|item)\.([a-zA-Z_]*)$/);
+   const nested=prefix.match(/\b((?:self|target)\.hand\[\d+\]|players\[\d+\])\.([a-zA-Z_]*)$/);
+   const loopVariable=prefix.match(/\b([a-zA-Z_][a-zA-Z_0-9]*)\.([a-zA-Z_]*)$/);
    const items=[];
    const add=(label,kind,insert,documentation,detail)=>{
     items.push({label,kind,insertText:insert,documentation,detail:detail||'CHAOS RELIC API',range,sortText:'0'+label});
    };
-   if(match){
-    const obj=match[1],isSetting=obj==='card'&&/^\s*card\.\w*$/.test(prefix);
-    const dict=obj==='card'?cardFields:obj==='item'?handFields:playerFields;
+   if(match||nested||(loopVariable&&new RegExp('\\bfor\\s+'+loopVariable[1]+'\\s+in\\s+(?:self|target)\\.hand\\s*:').test(model.getValue()))){
+    const obj=(match||nested||loopVariable)[1];
+    const isSetting=obj==='card'&&/^card\.\w*$/.test(prefix);
+    const dict=obj==='card'?cardFields:obj==='item'||nested?.[1].includes('.hand[')||(!match&&!nested)?handFields:playerFields;
     for(const [field,val]of Object.entries(dict)){
      const info=Array.isArray(val)?val[1]:val;
      const sample=Array.isArray(val)?val[0]:'';
