@@ -291,7 +291,7 @@ function run(program,event,ctx,actions){
     else if(f==='set_shield')actions.set_shield(who(arg(0,'self')),cap(arg(1,0)));
     else if(f==='set_status')actions.set_status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,0)));
     else if(f==='remove_status')actions.remove_status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'));
-    else if(f==='heal_percent')actions.heal_percent(who(arg(0,'self')),cap(arg(1,50),0,100000));
+    else if(f==='heal_percent')actions.heal_percent(who(arg(0,'self')),cap(arg(1,50),0,Number.MAX_SAFE_INTEGER));
     else if(f==='draw_type')actions.draw_type(who(arg(0,'self')),check(arg(1,'defense'),CARD_TYPES,'カード種類'),cap(arg(2,1),0,64));
     else if(f==='duplicate')actions.duplicate(who(arg(0,'self')),check(arg(1,'attack'),[...CARD_TYPES,'any'],'カード種類'),cap(arg(2,1),0,64));
     else if(f==='clear_hand')actions.clear_hand(who(arg(0,'target')));
