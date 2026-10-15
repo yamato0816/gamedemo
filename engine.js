@@ -83,6 +83,7 @@ const crClamp=(v,a=0,b=CR_MAX)=>{const n=Number(v);return Math.max(a,Math.min(b,
 const crInt=(v,a=0,b=CR_MAX)=>Math.round(crClamp(v,a,b));
 const crAdd=(v,change)=>crInt(Number(v)+Number(change),0,CR_MAX);
 const crText=(v,n=24)=>String(v||'').replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,n);
+const crDescription=v=>String(v??'').replace(/[<>\u0000-\u0009\u000b-\u001f]/g,'').trim().slice(0,8000);
 const crLive=p=>p&&p.hp>0;
 const crHuge=v=>{const n=Number(v??0);if(!Number.isSafeInteger(n)||n<0)throw Error('数値は0〜9007199254740991の安全な整数で入力してください');return n;};
 const crSafeDamage=v=>crInt(v,0,CR_MAX);
@@ -167,7 +168,7 @@ function crValidCard(raw,author){
   const type=raw.type;
   const created={id:'custom-'+crUid(),name,type,power:crHuge(raw.power),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
     element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crHuge(raw.cost),resource:raw.resource==='gold'?'gold':'mp',
-    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',16),author:crText(author,32),description:crText(raw.description,8000),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,30000):'',program:compiled};
+    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',16),author:crText(author,32),description:crDescription(raw.description),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,30000):'',program:compiled};
   return created;
 }
 function crCanPay(p,cards){return cards.reduce((n,c)=>n+c.cost*(c.resource==='mp'?1:0),0)<=p.mp&&cards.reduce((n,c)=>n+c.cost*(c.resource==='gold'?1:0),0)<=p.gold;}
