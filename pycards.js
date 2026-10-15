@@ -201,6 +201,25 @@ function run(program,event,ctx,actions){
   const cap=(v,lo=0,hi=Number.MAX_SAFE_INTEGER)=>Math.max(lo,Math.min(hi,Math.round(n(v))));
   const check=(val,list,msg)=>{if(!list.includes(val))fail('無効な'+msg+': '+String(val));return val;};
   const who=v=>check(v,WHOS,'対象');
+  const whoPlayer=v=>v==='self'?ctx.self:v==='target'?ctx.target:null;
+  const filterCards=(hand,type='any')=>{
+    if(!Array.isArray(hand))return [];
+    return type==='any'||type===''?hand:hand.filter(c=>c?.type===type);
+  };
+  function renderTemplate(template){
+    const source=String(template??'');
+    if(source.length>900)fail('表示する文章は900文字以内にしてください');
+    let count=0;
+    return source.replace(/\{\{|\}\}|\{([^{}]{1,160})\}/g, token=>{
+      if(token==='{{')return '{';
+      if(token==='}}')return '}';
+      if(++count>24)fail('文字列の変数埋め込みは24箇所までです');
+      const value=evaluate(parseExpression(token.slice(1,-1)));
+      if(value==null)return '';
+      if(typeof value==='object')fail('オブジェクトは直接表示できません。item.name など属性を選んでください');
+      return String(value).slice(0,96);
+    }).slice(0,900);
+  }
   function fun(f,args,kind){
     const arg=(i,defaultV)=>args[i]===undefined?defaultV:args[i];
     const from=(w)=>w==='target'?ctx.target:ctx.self;
@@ -209,6 +228,34 @@ function run(program,event,ctx,actions){
       case 'count_cards':{const a=arg(0,[]),type=arg(1,'');return Array.isArray(a)?a.filter(x=>!type||x?.type===type).length:0;}
       case 'sum_power':{const a=arg(0,[]),type=arg(1,'');return Array.isArray(a)?n(a.reduce((sum,c)=>sum+(!type||c?.type===type?(Number(c?.power)||0):0),0)):0;}
       case 'card_at':{const a=arg(0,[]),idx=cap(arg(1,0));return Array.isArray(a)?a[idx]||null:null;}
+      case 'count_element':{const a=arg(0,[]),element=String(arg(1,''));return Array.isArray(a)?a.filter(c=>c?.element===element).length:0;}
+      case 'count_effect':{const a=arg(0,[]),effect=String(arg(1,''));return Array.isArray(a)?a.filter(c=>c?.effect===effect).length:0;}
+      case 'sum_cost':return n(filterCards(arg(0,[]),arg(1,'any')).reduce((acc,c)=>acc+(Number(c?.cost)||0),0));
+      case 'highest_power':{const cards=filterCards(arg(0,[]),arg(1,'any'));return cards.length?Math.max(...cards.slice(0,1024).map(c=>n(c?.power))):0;}
+      case 'lowest_power':{const cards=filterCards(arg(0,[]),arg(1,'any'));return cards.length?Math.min(...cards.slice(0,1024).map(c=>n(c?.power))):0;}
+      case 'random_card':{const cards=arg(0,[]);return Array.isArray(cards)&&cards.length?cards[Math.floor(Math.random()*cards.length)]:null;}
+      case 'hand_count':return filterCards(whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.hand,arg(1,'any')).length;
+      case 'hand_power':return n(filterCards(whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.hand,arg(1,'any')).reduce((sum,c)=>sum+(Number(c?.power)||0),0));
+      case 'hand_cost':return n(filterCards(whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.hand,arg(1,'any')).reduce((sum,c)=>sum+(Number(c?.cost)||0),0));
+      case 'alive_count':return (ctx.r?.players||[]).filter(p=>p.hp>0).length;
+      case 'enemy_count':return (ctx.r?.players||[]).filter(p=>p.hp>0&&p.id!==ctx.self.id).length;
+      case 'total_hp':return n((ctx.r?.players||[]).filter(p=>p.hp>0).reduce((sum,p)=>sum+p.hp,0));
+      case 'total_shield':return n((ctx.r?.players||[]).filter(p=>p.hp>0).reduce((sum,p)=>sum+(p.shield||0),0));
+      case 'status_turns':return whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.status?.[check(arg(1,'poison'),ST,'状態異常')]||0;
+      case 'guardian_turns':return whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.guardian?.turns||0;
+      case 'has_guardian':{const guardian=whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.guardian;const type=arg(1,'any');return !!guardian&&(type==='any'||guardian.kind===type);}
+      case 'is_alive':return (whoPlayer(check(arg(0,'self'),['self','target'],'対象'))?.hp||0)>0;
+      case 'random_enemy':{const players=(ctx.r?.players||[]).filter(p=>p.hp>0&&p.id!==ctx.self.id);return players.length?playerView(players[Math.floor(Math.random()*players.length)]):null;}
+      case 'player_at':return playerView((ctx.r?.players||[])[cap(arg(0,0),0,1024)]||null);
+      case 'turn_player':return playerView((ctx.r?.players||[])[ctx.r?.turnIndex||0]||null);
+      case 'is_my_turn':return (ctx.r?.players||[])[ctx.r?.turnIndex||0]?.id===ctx.self.id;
+      case 'format':return renderTemplate(arg(0,''));
+      case 'str':return String(arg(0,'')??'').slice(0,900);
+      case 'floor':return Math.floor(n(arg(0,0)));
+      case 'ceil':return Math.ceil(n(arg(0,0)));
+      case 'sqrt':return Math.sqrt(Math.max(0,n(arg(0,0))));
+      case 'clamp':{const val=n(arg(0,0)),a=n(arg(1,0)),b=n(arg(2,100));return Math.max(Math.min(a,b),Math.min(Math.max(a,b),val));}
+      case 'contains':{const val=arg(0,''),search=arg(1,'');return Array.isArray(val)?val.includes(search):String(val).includes(String(search));}
       case 'damage_dealt':return ctx.damageDealt||0;
       case 'damage_taken':return ctx.damageTaken||0;
       case 'my_hp':return ctx.self.hp;
@@ -240,14 +287,33 @@ function run(program,event,ctx,actions){
     else if(f==='multiply_attack')actions.multiply_attack(cap(arg(0,1),0,Number.MAX_SAFE_INTEGER));
     else if(f==='discard')actions.discard(who(arg(0,'target')),check(arg(1,'defense'),['attack','defense','magic','item','guardian','omen','any'],'種類'),cap(arg(2,1),0,1024));
     else if(f==='swap_hands')actions.swap_hands();
+    else if(f==='set_resource')actions.set_resource(who(arg(0,'self')),check(arg(1,'mp'),['mp','gold'],'資源'),cap(arg(2,0)));
+    else if(f==='set_shield')actions.set_shield(who(arg(0,'self')),cap(arg(1,0)));
+    else if(f==='set_status')actions.set_status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,0)));
+    else if(f==='remove_status')actions.remove_status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'));
+    else if(f==='heal_percent')actions.heal_percent(who(arg(0,'self')),cap(arg(1,50),0,100000));
+    else if(f==='draw_type')actions.draw_type(who(arg(0,'self')),check(arg(1,'defense'),CARD_TYPES,'カード種類'),cap(arg(2,1),0,64));
+    else if(f==='duplicate')actions.duplicate(who(arg(0,'self')),check(arg(1,'attack'),[...CARD_TYPES,'any'],'カード種類'),cap(arg(2,1),0,64));
+    else if(f==='clear_hand')actions.clear_hand(who(arg(0,'target')));
+    else if(f==='give')actions.give(who(arg(0,'target')),check(arg(1,'gold'),['mp','gold'],'資源'),cap(arg(2,0)));
+    else if(f==='swap_stat')actions.swap_stat(check(arg(0,'hp'),['hp','mp','gold','shield'],'ステータス'));
+    else if(f==='shuffle_hand')actions.shuffle_hand(who(arg(0,'self')));
+    else if(f==='popup')actions.popup(renderTemplate(arg(0,'')),renderTemplate(arg(1,'')),String(arg(2,'✨')),check(arg(3,'magic'),POPUP_THEMES,'ポップ色'));
+    else if(f==='battle_log')actions.battle_log(renderTemplate(arg(0,'')));
     return 0;
   }
   function evaluate(node){tick();if(!node||typeof node!=='object')fail('不正な式');
     if(node.k==='literal')return node.v;
-    if(node.k==='var'){if(!Object.hasOwn(vars,node.name))fail('未定義の変数: '+node.name);return vars[node.name];}
+    if(node.k==='var'){
+      if(node.name==='self')return playerView(ctx.self);
+      if(node.name==='target')return playerView(ctx.target);
+      if(node.name==='players')return (ctx.r?.players||[]).map(playerView);
+      if(!Object.hasOwn(vars,node.name))fail('未定義の変数: '+node.name);
+      return vars[node.name];
+    }
     if(node.k==='attr'){
       const object=evaluate(node.a);
-      const keys=['id','name','description','type','effect','power','cost','resource','weight','element','emoji','hp','mp','gold','shield','status','hand','length','poison','burn','freeze','curse','weak'];
+      const keys=['id','name','description','type','effect','power','cost','resource','weight','element','emoji','hp','mp','gold','shield','status','hand','guardian','kind','turns','length','poison','burn','freeze','curse','weak'];
       if(!keys.includes(node.name))fail('参照できない属性: '+node.name);
       if(object==null)return null;
       if(Array.isArray(object)&&node.name==='length')return object.length;
@@ -284,5 +350,5 @@ function run(program,event,ctx,actions){
   }}
   execute(stmts);return {actions:count};
 }
-root.PyCards={compile,run,events:EVENTS,reads:READS,effects:EFFECTS};
+root.PyCards={compile,run,events:EVENTS,reads:READS,effects:EFFECTS,docs:API_DOCS};
 })(typeof globalThis!=='undefined'?globalThis:this);
