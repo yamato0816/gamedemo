@@ -68,7 +68,7 @@ for(const name of [...P.reads,...P.effects])assert.ok(P.docs[name]?.[1],'Missing
 }
 {
  const {r,self,target}=play('def on_play():\n    draw_type("self", "defense", 5)\n    duplicate("target", "defense", 3)\n    clear_hand("target")\n    popup("手札を更新", "自分 {hand_count(\'self\', \'defense\')} / 相手 {hand_count(\'target\')}", "🎴", "info")');
- assert.equal(r.customPopups[0].detail,'自分 5 / 相手 0','check during effect, before turn-start draws');
+ assert.equal(r.customPopups[0].detail,'自分 6 / 相手 0','spent item is replenished before on_play; draw_type then grants 5 more');
  assert.ok(self.hand.filter(c=>c.type==='defense').length>=5);
  assert.ok(target.hand.length<=1);
 }
