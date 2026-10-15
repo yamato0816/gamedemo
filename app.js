@@ -185,17 +185,31 @@ function testCardCode(){
  try{
   const program=PyCards.compile(script);
   const guard=()=>({name:'盾',type:'defense',power:12,cost:0});
-  const create=()=>({hp:1000,mp:1000,gold:1000,shield:0,status:{poison:0,burn:0,freeze:0,curse:0,weak:0},hand:[guard(),guard(),guard(),guard()],guardian:null});
+  const create=(id,name)=>({id,name,hp:1000,mp:1000,gold:1000,shield:0,status:{poison:0,burn:0,freeze:0,curse:0,weak:0},hand:[guard(),guard(),guard(),guard()],guardian:null});
   const log=['🧪 テスト条件：自HP 1000 / MP 1000 / 相手HP 1000 / 相手の防御札 4枚','    受ける攻撃 120 / 与えた実ダメージ 55 / 受けた実ダメージ 30'];
   const events=Object.keys(program.handlers);
   for(const event of events){
-   const self=create(),target=create(),r={round:10,pending:{damage:120}};
+   const self=create('sandbox-self','自分'),target=create('sandbox-target','相手'),r={round:10,turnIndex:0,players:[self,target],pending:{damage:120}};
    const ctx={r,self,target,card:{...draft,...program.meta},damageDealt:55,damageTaken:30,incomingDamage:120,ownDefenseCount:4};
    const notes=[];
    const change=(who,fn)=>{const arr=who==='self'?[self]:who==='target'?[target]:who==='everyone'?[self,target]:who==='all_enemies'?[target]:[target];arr.forEach(fn);};
    let attack=0,guard=0;
    const actions={
     damage:(w,n)=>{change(w,p=>{p.hp=Math.max(0,p.hp-n);});notes.push('💥 '+w+'へ '+n+'ダメージ');},
+    set_hp:(w,n)=>{change(w,p=>p.hp=n);notes.push('❤️ '+w+'のHPを'+n+'に設定');},
+    set_resource:(w,k,n)=>{change(w,p=>p[k]=n);notes.push('💠 '+w+'の'+k+'を'+n+'に設定');},
+    set_shield:(w,n)=>{change(w,p=>p.shield=n);notes.push('🛡 '+w+'のバリアを'+n+'に設定');},
+    set_status:(w,k,n)=>{change(w,p=>p.status[k]=n);notes.push('🧿 '+w+'の'+k+'を'+n+'ターンに設定');},
+    remove_status:(w,k)=>{change(w,p=>p.status[k]=0);notes.push('✨ '+w+'の'+k+'を解除');},
+    heal_percent:(w,n)=>{change(w,p=>p.hp+=Math.floor(p.hp*n/100));notes.push('💚 '+w+'を'+n+'%回復');},
+    draw_type:(w,k,n)=>{change(w,p=>{for(let i=0;i<Math.min(n,64);i++)p.hand.push({name:'テスト',type:k,power:10,cost:0});});notes.push('🎴 '+w+'の'+k+'札を'+n+'枚追加');},
+    duplicate:(w,k,n)=>{change(w,p=>{const cards=p.hand.filter(c=>k==='any'||c.type===k);for(let i=0;i<Math.min(n,64)&&cards.length;i++)p.hand.push({...cards[i%cards.length]});});notes.push('🪄 '+w+'の'+k+'札を'+n+'枚複製');},
+    clear_hand:w=>{change(w,p=>p.hand=[]);notes.push('🗑 '+w+'の手札を全部破棄');},
+    give:(w,k,n)=>{change(w,p=>{if(p===self)return;const amount=Math.min(self[k],n);self[k]-=amount;p[k]+=amount;});notes.push('🤝 '+w+'に'+k+'を'+n+'譲渡');},
+    swap_stat:k=>{const temp=self[k];self[k]=target[k];target[k]=temp;notes.push('🔄 '+k+'を交換');},
+    shuffle_hand:w=>{change(w,p=>p.hand.reverse());notes.push('🎲 '+w+'の手札をシャッフル');},
+    popup:(title,message,icon,theme)=>{notes.push('🎬 ポップ ['+theme+'] '+title+' / '+message);window.ChaosPopups?.preview(title,message,icon,theme);},
+    battle_log:message=>notes.push('📜 '+message),
     heal:(w,n)=>{change(w,p=>{p.hp+=n;});notes.push('💚 '+w+'を '+n+'回復');},
     shield:(w,n)=>{change(w,p=>{p.shield+=n;});notes.push('🛡 '+w+'にバリア '+n);},
     status:(w,k,n)=>{change(w,p=>{p.status[k]=n;});notes.push('🧿 '+w+'に '+k+' '+n+'ターン');},
@@ -254,7 +268,17 @@ function editCodeInsert(str){
  el.dispatchEvent(new Event('input',{bubbles:true}));
 }
 async function copyInvite(){const transport=localStorage.getItem('cr_transport_mode');const link=location.origin+location.pathname+'?room='+state.room+(transport==='firebase'?'&transport=firebase':'');try{await navigator.clipboard.writeText(link);toast('招待リンクをコピーしました');}catch{prompt('このURLを友達に送ってください',link);}}
-document.addEventListener('input',ev=>{if(modal==='editor'&&ev.target?.id?.startsWith('edit-'))updatePreview();});
+document.addEventListener('input',ev=>{
+ if(modal!=='editor')return;
+ if(ev.target?.id==='forge-api-search'){
+  const query=ev.target.value.trim().toLocaleLowerCase();
+  document.querySelectorAll('#forge-api-pills button').forEach(button=>{
+   button.hidden=!!query&&!button.dataset.search.toLocaleLowerCase().includes(query);
+  });
+  return;
+ }
+ if(ev.target?.id?.startsWith('edit-'))updatePreview();
+});
 document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
@@ -273,7 +297,7 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  case 'code-only':setEditorMode('code');setCodeText(FULL_CARD_TEMPLATE);toast('コードだけで名前・説明・コストまで指定できます');break;
  case 'mode-form':getDraft();setEditorMode('form');break;
  case 'mode-code':getDraft();setEditorMode('code');break;
- case 'code-lightweight':window.ForgeMonaco?.fallback();break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
+ case 'code-lightweight':window.ForgeMonaco?.fallback();break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'preview-popup':window.ChaosPopups?.preview('オリジナル演出','ダメージ 100 / 追加Gold +500','⚡','gold');break;case 'save-card':saveCard();break;
  case 'snippet':{
  getDraft();
  const current=codeText(),header=current.split(/^def on_/m)[0];
