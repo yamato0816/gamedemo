@@ -9,6 +9,7 @@ function element(tag){
   className:'',
   setAttribute(k,v){this.attributes[k]=v;},
   append(...items){for(const x of items){x.parent=this;x.isConnected=this.isConnected;this.children.push(x);}},
+  appendChild(item){this.append(item);return item;},
   replaceChildren(...items){for(const c of this.children)c.isConnected=false;this.children=[];this.append(...items);},
   remove(){if(this.parent){this.parent.children=this.parent.children.filter(c=>c!==this);}this.isConnected=false;},
   classList:{add(){}}
