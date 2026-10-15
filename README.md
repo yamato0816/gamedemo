@@ -270,7 +270,7 @@ def on_play():
 
 ## 2026-10-13：カード工房 v3 / データ同期 / 反撃チェーン
 
-- **コードだけでカード完成**：「📄 コードだけでカード完成」を押すと、`card.name`, `card.description`, `card.type`, `card.power`, `card.cost`, `card.resource`, `card.effect`, `card.emoji` 等を先頭に記述した見本を挿入します。フォームと併用可能で、コードが優先されます。
+- **コードだけでカード完成**：「📄 コードだけでカード完成」を押すと、`card.name`, `card.description`, `card.type`, `card.power`, `card.cost`, `card.resource`, `card.effect`, `card.emoji` 等を先頭に記述した見本を挿入します。コードタブで保存した場合に限ってコード内の設定が優先されます。フォームタブで保存した場合はフォーム設定が優先されます。
 - **Python風のオブジェクト構文**：読み取り専用の `self.hp`, `target.hand`, `card.type`、カードの `item.power`、`for item in target.hand:`、`len()`, `sum_power()`, `count_cards()` が使えます。`discard()`, `swap_hands()`, `multiply_attack()` 等の効果も追加しました。
 - **JSON許容量拡大**：カード名64文字、説明8000文字、プログラム30000文字・600行。カードのロビー公開はJSON文字数131072、操作の送受信は262144まで。Firebase SDK自体の16MiB書き込み制限は別途適用されます。安全性とブラウザ負荷対策の実行ステップ制限は維持します。
 - **反撃への再防御**：反射／針のよろい／雷神／自作防御コードの反撃、転送や分散した攻撃でも防御のチャンスを与えます。無限ループ防止に反撃チェーン6段階、反撃キュー48件を上限とします。
@@ -284,3 +284,10 @@ def on_play():
 カード工房は **「🧩 入力で作成」と「🐍 コードで作成」** の2タブ式です。タブ間の編集中データは消えません。コード作成タブには完全なカードテンプレート、タップで挿入できる構文キー、イベント関数のスニペット、Enter時の自動4スペースインデントを搭載しています。コード入力が難しければフォームだけでカード作成を完了できます。
 
 Firebase上の対戦では、ホスト退出・切断時に他の参加者が新ホストになり、Firebase内のホスト専用チェックポイントから対戦を継続する仕組みを追加しています。**利用する前に [firebase.database.rules.json](./firebase.database.rules.json) の最新内容をFirebaseコンソールのRulesへ再公開する必要があります。** 仕組みとテスト手順は [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) を参照してください。
+
+## 2026-10-15：Monaco Editor・フォーム／コードの保存分離
+
+- Monaco Editor（0.52.2）をコードタブでオンデマンド読み込みし、Python構文の色分けと**ゲームAPI固有のコード補完**を提供します。`Ctrl+Space` で候補を開き、`card.name`, `target.hand`, `damage()`, `heal()`, `resource()`, `steal()`, `def on_play()` などを挿入できます。インタプリタの制限は従来どおりです。外部CDNが遮断された場合はテキスト入力へ自動フォールバックし、手動の「軽量入力」も利用できます。
+- **フォームタブでの保存**は、別のコードタブに残っている `card.*` 宣言やイベントスクリプトを無視して、現在のフォーム入力だけをカードに反映します。**コードタブでの保存**は、コード内の設定を優先します。
+- **フォームからコード生成**は、`name`, `description`, `type`, `emoji`, `power`, `cost`, `resource`, `effect`, `element`, `weight` をそのまま生成します。既定のカード効果は `card.effect` によって実現され、不要な追加 `on_play` は付けません。
+- 編集途中の自動保存と、改行付きの説明に対応しています。検証は `node tests/card-forge-modes.test.js` を実行してください。詳細は [CARD_API.md](./CARD_API.md) を参照してください。
