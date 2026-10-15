@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const EVENTS=['play','hit','defend','block','turn_start','guard'];
-const EFFECTS=['damage','heal','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack'];
+const EFFECTS=['damage','heal','set_hp','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack'];
 const READS=['len','count_cards','sum_power','card_at','damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
 const WHOS=['self','target','everyone','all_enemies','random_enemy'];
 const ST=['poison','burn','freeze','curse','weak'];
@@ -167,7 +167,7 @@ function run(program,event,ctx,actions){
     }
     if(kind!=='effect')fail(f+' は計算式内で使えません');
     if(++count>120)fail('処理保護：1回の発動は120効果までです');
-    if(f==='damage'||f==='heal'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,Number.MAX_SAFE_INTEGER));
+    if(f==='damage'||f==='heal'||f==='set_hp'||f==='shield'||f==='draw')actions[f](who(arg(0,'self')),cap(arg(1,0),0,Number.MAX_SAFE_INTEGER));
     else if(f==='status')actions.status(who(arg(0,'target')),check(arg(1,'poison'),ST,'状態異常'),cap(arg(2,1),1,Number.MAX_SAFE_INTEGER));
     else if(f==='resource')actions.resource(who(arg(0,'self')),check(arg(1,'mp'),['mp','gold'],'資源'),cap(arg(2,0),-Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER));
     else if(f==='cleanse')actions.cleanse(who(arg(0,'self')));
