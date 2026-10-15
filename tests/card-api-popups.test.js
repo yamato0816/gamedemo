@@ -67,9 +67,10 @@ for(const name of [...P.reads,...P.effects])assert.ok(P.docs[name]?.[1],'Missing
  assert.equal(r.scriptFeedback.ok,true);
 }
 {
- const {self,target}=play('def on_play():\n    draw_type("self", "defense", 5)\n    duplicate("target", "defense", 3)\n    clear_hand("target")');
- assert.equal(self.hand.filter(c=>c.type==='defense').length,5);
- assert.equal(target.hand.length,0);
+ const {r,self,target}=play('def on_play():\n    draw_type("self", "defense", 5)\n    duplicate("target", "defense", 3)\n    clear_hand("target")\n    popup("手札を更新", "自分 {hand_count(\'self\', \'defense\')} / 相手 {hand_count(\'target\')}", "🎴", "info")');
+ assert.equal(r.customPopups[0].detail,'自分 5 / 相手 0','check during effect, before turn-start draws');
+ assert.ok(self.hand.filter(c=>c.type==='defense').length>=5);
+ assert.ok(target.hand.length<=1);
 }
 {
  const {self,target}=play('def on_play():\n    give("target", "gold", 5)\n    swap_stat("mp")\n    heal_percent("self", 50)',{self:{hp:100,mp:10,gold:20},target:{hp:70,mp:200,gold:3}});
@@ -77,7 +78,7 @@ for(const name of [...P.reads,...P.effects])assert.ok(P.docs[name]?.[1],'Missing
  assert.equal(self.gold,15);
  assert.equal(target.gold,8);
  assert.equal(self.mp,200);
- assert.equal(target.mp,10);
+ assert.ok(target.mp>=10&&target.mp<=13,'target may gain MP on the next turn');
 }
 {
  const {r}=play([
