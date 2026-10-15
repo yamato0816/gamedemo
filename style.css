@@ -69,3 +69,7 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
  .forge-code-mode .code-region{min-height:250px}
  #monaco-editor .monaco-editor{font-size:14px}
 }
+
+.forge-mode-hint{background:#f8fbf5;color:#52715b;border-bottom:1px solid #d5e1d2;padding:7px 16px;margin:0;font-size:11px;font-weight:650;line-height:1.45}
+.forge-field textarea{width:100%;min-height:85px;padding:9px 10px;border:1px solid #c7ccbd;border-radius:5px;background:white;font-size:12px;line-height:1.6;resize:vertical;color:#303d31;font-family:inherit}
+@media(max-width:730px){.forge-mode-hint{padding:6px 10px;font-size:10px}.forge-field textarea{font-size:14px}}
