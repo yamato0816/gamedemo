@@ -73,3 +73,14 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
 .forge-mode-hint{background:#f8fbf5;color:#52715b;border-bottom:1px solid #d5e1d2;padding:7px 16px;margin:0;font-size:11px;font-weight:650;line-height:1.45}
 .forge-field textarea{width:100%;min-height:85px;padding:9px 10px;border:1px solid #c7ccbd;border-radius:5px;background:white;font-size:12px;line-height:1.6;resize:vertical;color:#303d31;font-family:inherit}
 @media(max-width:730px){.forge-mode-hint{padding:6px 10px;font-size:10px}.forge-field textarea{font-size:14px}}
+
+
+/* Filterable card API catalog shared with Monaco's completion source. */
+.forge-api-search{display:block;width:100%;box-sizing:border-box;min-height:42px;border:1px solid #aabfaf;border-radius:9px;background:#f4faf5;color:#2c4332;padding:9px 12px;margin:7px 0 10px;font-size:12px;outline-offset:2px}
+.forge-api-search:focus{outline:2px solid #5b8d71}
+.forge-code-mode .api-pills{max-height:210px;overflow-y:auto;scrollbar-width:thin;align-content:start}
+.forge-code-mode .api-pills button{display:flex;flex-direction:column;align-items:flex-start;min-width:100px;max-width:240px;white-space:normal;gap:3px;padding:8px 10px;line-height:1.35;text-align:left}
+.forge-code-mode .api-pills button b{font:800 11px ui-monospace,monospace;color:#225b75;overflow-wrap:anywhere}
+.forge-code-mode .api-pills button small{font-size:10px;color:#6e7f79;white-space:normal;text-wrap:balance}
+.api-pills button[hidden]{display:none!important}
+@media(max-width:730px){.forge-code-mode .api-pills{max-height:180px}.forge-code-mode .api-pills button{min-width:125px;max-width:47%;flex:1 0 45%}.forge-api-search{font-size:14px}}
