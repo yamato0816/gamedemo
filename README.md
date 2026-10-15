@@ -291,3 +291,32 @@ Firebase上の対戦では、ホスト退出・切断時に他の参加者が新
 - **フォームタブでの保存**は、別のコードタブに残っている `card.*` 宣言やイベントスクリプトを無視して、現在のフォーム入力だけをカードに反映します。**コードタブでの保存**は、コード内の設定を優先します。
 - **フォームからコード生成**は、`name`, `description`, `type`, `emoji`, `power`, `cost`, `resource`, `effect`, `element`, `weight` をそのまま生成します。既定のカード効果は `card.effect` によって実現され、不要な追加 `on_play` は付けません。
 - 編集途中の自動保存と、改行付きの説明に対応しています。検証は `node tests/card-forge-modes.test.js` を実行してください。詳細は [CARD_API.md](./CARD_API.md) を参照してください。
+
+
+## 2026-10-15: 自作カードAPI 81関数・オリジナルポップ演出
+
+コードタブで**関数名または効果の日本語説明から関数検索**ができます。Monaco Editorにもゲーム専用APIの入力補完を登録しました。カードの能力を作るための読み取り関数52種類、操作・演出関数29種類をサポートします。
+
+例（Goldを増やしたあと、計算結果を全員へ金色ポップ表示）：
+
+```python
+card.name = "黄金の大博打"
+card.type = "item"
+card.effect = "gold"
+card.power = 0
+card.cost = 0
+
+def on_play():
+    bonus = hand_count("target", "defense") * 50 + 300
+    resource("self", "gold", bonus)
+    popup("黄金の祝福", "防御札 {hand_count('target', 'defense')}枚 × 50 + 300 = {bonus} Gold! / 所持 {self.gold}G", "💰", "gold")
+    battle_log("Gold +{bonus} を獲得")
+```
+
+`popup(title, detail, icon, theme)` のテーマは `magic`（紫）、`danger`（赤）、`success`（緑）、`gold`（金）、`info`（青）です。`{bonus}` のようなローカル変数、`{self.hp}` のようなプレイヤー値、`{hand_count('target','defense')}` のような式も置換できます。`format("名前 {self.name}")` は文字列として結果を返します。ポップはゲーム状態に保存され、**Firebase・P2P・中継を含む各プレイヤーへ同期**されます。
+
+そのほか `draw_type()`（種類指定ドロー）、`duplicate()`（カード複製）、`clear_hand()`、`set_hp()`、`set_resource()`、`swap_stat()`、`give()`、`heal_percent()`、`alive_count()`、`hand_power()` などを追加しています。全81関数・使い方は **[CARD_API.md](./CARD_API.md)** に記載しています。
+
+コード工房では「🎬 ポップ」などのテンプレートを押して挿入でき、「🧪 実行テスト」で実際の計算後の値とポップの見た目を確認できます。大量のポップによる表示スパムを防ぐため、1回のカードイベントで表示する演出は6件、保持する演出の履歴は12件までです。表示テキストはHTMLとして実行しません。
+
+回帰テストは `node tests/card-api-popups.test.js`、`node tests/card-popup-ui.test.js` を追加しました。
