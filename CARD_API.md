@@ -194,3 +194,136 @@ def on_play():
 - 説明文は改行付きでも保存できます。カードの作成途中の入力とコードはブラウザ内で自動保存し、次に開いたときに復元します。
 
 テスト: `node tests/card-forge-modes.test.js`。
+
+
+## 2026-10-15: 大規模カードAPIアップデート・自由なポップ演出
+
+カード工房の「コードで作成」タブは関数一覧を**説明文込みで検索**できます。Monacoでは関数名や引数を入力するとオートコンプリートが出ます。対象者の手札は `target.hand`、使用中カードは `card`、自分の情報は `self` からも読み取れます。
+
+### 🎬 カスタムポップ（全員に表示）
+
+```python
+card.name = "黄金の奇跡"
+card.type = "item"
+card.effect = "mana"
+card.power = 0
+card.cost = 0
+
+def on_play():
+    shields = hand_count("target", "defense")
+    bonus = shields * 100 + 500
+    resource("self", "gold", bonus)
+    popup("黄金の祝福！", "対象の盾 {shields} 枚 × 100 + 500 = +{bonus} Gold / 今は {self.gold}G", "💰", "gold")
+    battle_log("{self.name} は {bonus}G を獲得！")
+```
+
+**`popup(title, message, icon, theme)`** は保存されたポップイベントを全員に配信し、アニメーションで見せます。`message` と `title` 内の `{変数名}`、`{self.hp}`、`{target.hand[0].power}`、`{hand_count('target', 'defense')}` のような中身を、そのイベント実行時の値に置き換えます。`{bonus * 2}` のような算術式も利用できます。`{{`/`}}` は文字としての波括弧を表示します。`format("現在 {self.gold}G")` を使うと文章だけを生成できます。
+
+ポップ色は次の5種類です。
+
+| theme | 見た目 | 使用例 |
+|---|---|---|
+| `"magic"` | 紫の魔法演出 | 奇跡、召喚、異常現象 |
+| `"danger"` | 赤の警告演出 | 即死攻撃、反撃 |
+| `"success"` | 緑の回復演出 | 回復、護符 |
+| `"gold"` | 金色の報酬演出 | Gold・アイテム獲得 |
+| `"info"` | 青の情報演出 | 戦況告知、読み取り |
+
+省略すると `popup("発動！")` でも動作し、デフォルトは魔法色です。アイコン・色はカード作者が指定し、表示文字列はHTMLとして実行されません。巨大な演出や連続スパムを防ぐため、1回のイベントで最大6個、最近の配信履歴は12個までです。実行テスト中はポップの見た目も確認できます。
+
+### 便利な読み取り関数（52種類）
+
+| 関数（例） | 何ができるか |
+|---|---|
+| `len(array)` | 配列または文字列の長さ |
+| `count_cards(target.hand, "defense")` | 指定したカード種類の枚数 |
+| `sum_power(target.hand, "attack")` | 指定種類の威力合計 |
+| `card_at(target.hand, 0)` | 指定位置のカードを取得 |
+| `count_element(target.hand, "fire")` | 特定属性のカード枚数 |
+| `count_effect(target.hand, "heal")` | 特定効果のカード枚数 |
+| `sum_cost(target.hand, "attack")` | 指定種類のコスト合計 |
+| `highest_power(target.hand, "attack")` | 指定種類の最大威力（該当なしなら0） |
+| `lowest_power(target.hand, "defense")` | 指定種類の最小威力（該当なしなら0） |
+| `random_card(target.hand)` | 手札からランダムなカードを選ぶ |
+| `hand_count("target", "defense")` | 対象の防御札の枚数、種類を省略すると全手札 |
+| `hand_power("target", "attack")` | 対象手札の威力合計 |
+| `hand_cost("target", "magic")` | 対象手札のコスト合計 |
+| `alive_count()` | 生存プレイヤーの人数 |
+| `enemy_count()` | 生存する敵の人数 |
+| `total_hp()` | 生存プレイヤーのHP合計 |
+| `total_shield()` | 生存プレイヤーのバリア合計 |
+| `status_turns("target", "poison")` | 対象の状態異常残りターン |
+| `guardian_turns("self")` | 守護神の残りターン |
+| `has_guardian("target", "phoenix")` | 指定守護神がいるか（省略で種類問わず） |
+| `is_alive("target")` | 対象が生存しているか |
+| `random_enemy()` | 生存中の敵をランダムで取得 |
+| `player_at(0)` | 全プレイヤーの指定位置を取得 |
+| `turn_player()` | 現在手番のプレイヤーを取得 |
+| `is_my_turn()` | 自分のターンか |
+| `format("残りHP {target.hp} / 倍率 {bonus}")` | 波括弧内の式を実際の値に置換 |
+| `str(target.hp)` | 数値や真偽値を文字列に変換 |
+| `floor(value)` | 小数点以下を切り捨て |
+| `ceil(value)` | 小数点以下を切り上げ |
+| `sqrt(value)` | 平方根 |
+| `clamp(value, 0, 100)` | 指定範囲に数値を収める |
+| `contains("fire", "ir")` | 文字列や配列に指定値が含まれるか |
+| `damage_dealt()` | 与えた実ダメージ |
+| `damage_taken()` | 受けた実ダメージ |
+| `my_hp()` | 自分のHP |
+| `target_hp()` | 対象のHP |
+| `my_mp()` | 自分のMP |
+| `target_mp()` | 対象のMP |
+| `my_gold()` | 自分のGold |
+| `target_gold()` | 対象のGold |
+| `my_defense_cards()` | 自分の防御札枚数 |
+| `target_defense_cards()` | 対象の防御札枚数 |
+| `incoming_damage()` | 防御前の攻撃威力 |
+| `round_number()` | 現在のラウンド |
+| `has_status("target", "poison")` | 状態異常の有無 |
+| `randint(1, 6)` | 指定範囲のランダム整数 |
+| `chance(0.5)` | 指定確率でTrue |
+| `min(a, b)` | 最小値 |
+| `max(a, b)` | 最大値 |
+| `abs(value)` | 絶対値 |
+| `int(value)` | 整数部分 |
+| `round(value)` | 四捨五入 |
+
+### ゲーム操作・演出関数（29種類）
+
+| 関数（例） | 何ができるか |
+|---|---|
+| `damage("target", 100)` | 指定対象にダメージ |
+| `heal("self", 100)` | HPを回復 |
+| `set_hp("everyone", 1)` | HPを指定値に設定（バリアを通さない） |
+| `status("target", "poison", 3)` | 状態異常を付与 |
+| `shield("self", 100)` | バリアを追加 |
+| `resource("self", "gold", 100)` | MPまたはGoldを増減 |
+| `draw("self", 3)` | カードを引く |
+| `cleanse("self")` | 状態異常をすべて解除 |
+| `summon("self", "phoenix", 3)` | 守護神を召喚 |
+| `phenomenon("meteor")` | 超常現象を発生 |
+| `steal("mp", 50)` | 相手のMP/Goldを奪う |
+| `boost_attack(100)` | 現在の攻撃威力に加算 |
+| `boost_defense(100)` | 現在の防御力に加算 |
+| `discard("target", "defense", 2)` | 指定種類のカードを破棄 |
+| `swap_hands()` | 対象と手札を丸ごと交換 |
+| `multiply_attack(3)` | 現在の攻撃威力を指定倍率に |
+| `set_resource("self", "mp", 500)` | MPまたはGoldを指定値に設定 |
+| `set_shield("self", 100)` | バリアを指定値に設定 |
+| `set_status("target", "poison", 1)` | 残りターンを指定値に設定 |
+| `remove_status("target", "poison")` | 指定した状態異常だけ解除 |
+| `heal_percent("self", 50)` | 現在HPの指定パーセントを回復 |
+| `draw_type("self", "defense", 3)` | 指定種類のカードを引く |
+| `duplicate("self", "attack", 2)` | 対象の手札にある指定種類のカードを複製 |
+| `clear_hand("target")` | 対象の手札を全部破棄 |
+| `give("target", "gold", 100)` | 自分のGold/MPを対象へ渡す |
+| `swap_stat("hp")` | 自分と対象のHP/MP/Gold/バリアを交換 |
+| `shuffle_hand("self")` | 手札の順番をシャッフル |
+| `popup("天罰発動！", "HP {target.hp} / 倍率 {bonus}", "⚡", "danger")` | 全員にアニメーション付きのオリジナルポップを表示。{式}を置換 |
+| `battle_log("ボーナス {bonus} を獲得！")` | カスタム戦闘ログを全員へ表示 |
+
+**共通の対象指定**：`"self"` 自分、`"target"` そのカードの対象、`"everyone"` 生存者全員、`"all_enemies"` 自分以外の生存者、`"random_enemy"` 生存している敵からランダムです。
+
+`set_hp()` はバリアを貫通して直接HPを指定値にします。0にした場合は通常の脱落判定を行います。`heal_percent()` は上限HPが存在しないため、**現在HPに対する割合回復**です。`draw_type()` と `duplicate()` は1回64枚までです。`swap_stat()` はカードの `target` と自分の指定ステータスを交換します。`remove_status()` は指定状態だけ解除し、`cleanse()` は全状態を解除します。
+
+**注意**：通常のPythonライブラリ、無限ループ、ファイルや通信アクセスは利用できません。ここに記載したゲーム専用APIだけが実行されます。数値の演算やプレイヤー情報はホスト側で処理されます。フォームで保存する場合はコードの効果は含まれず、コードを発動させる場合は「コードで作成」タブで保存してください。
