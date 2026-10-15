@@ -44,6 +44,8 @@ const docs={
   swap_hands:['','対象と手札を交換'],
   multiply_attack:['3','攻撃の威力を倍化']
 };
+// Keep suggestions aligned with the actual restricted Python interpreter.
+Object.assign(docs,root.PyCards?.docs||{});
 const cardFields={
  name:['"カードの名前"','表示名'],
  description:['"カードの能力説明"','カードの説明文'],
@@ -146,6 +148,12 @@ function installCompletions(m){
     add('card.'+field,m.languages.CompletionItemKind.Property,
       'card.'+field+' = '+cardFields[field][0],cardFields[field][1],'カード設定');
    }
+   for(const [label,insert,description] of [
+    ['🎬 オリジナルポップ','popup("天罰！", "残りHP {target.hp} / ボーナス {bonus}", "⚡", "danger")','変数の値を埋め込んだ全員共通のアニメーションを表示'],
+    ['🪙 Goldプレゼント','resource("self", "gold", 1000)','Goldを増やす'],
+    ['🛡 防御札を引く','draw_type("self", "defense", 3)','防御カードをまとめて引く'],
+    ['📜 戦闘ログ','battle_log("獲得したGold: {self.gold}")','好きな戦闘ログを流す']
+   ])add(label,m.languages.CompletionItemKind.Snippet,insert,description,'ゲーム用テンプレート');
    for(const [label,insert,description]of [
     ['for item in target.hand','for item in target.hand:\n    if item.type == "defense":\n        boost_attack(item.power)','対象の手札を走査'],
     ['for item in self.hand','for item in self.hand:\n    if item.type == "attack":\n        boost_attack(item.power)','自分の手札を走査'],
