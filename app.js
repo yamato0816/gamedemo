@@ -91,22 +91,36 @@ function play(){const cards=chosenCards();if(!cards.length)return;if(amDefending
 const FULL_CARD_TEMPLATE="card.name = \"全手札を断つ巨剣\"\ncard.description = \"相手のすべての手札を調査し、防御札の威力の総和を攻撃に加算する。\"\ncard.type = \"attack\"\ncard.emoji = \"⚔️\"\ncard.power = 100\ncard.cost = 5\ncard.resource = \"mp\"\ncard.effect = \"normal\"\ncard.element = \"dark\"\ncard.weight = 3\n\ndef on_play():\n    bonus = 0\n    for item in target.hand:\n        if item.type == \"defense\":\n            bonus += item.power\n    boost_attack(bonus)\n\ndef on_hit():\n    heal(\"self\", damage_dealt() // 2)";
 function openEditor(){
  const saved=load('cr3-editor-draft',null);
- draft=saved?.data||{...initial};draftCode=saved?.code??draft.script;
- editorMode=saved?.mode||'form';modal='editor';renderModal();
+ draft=saved?.data||{...initial,script:''};
+ draftCode=saved?.code??(saved?.data?.script||'');
+ editorMode=saved?.mode==='code'?'code':'form';
+ modal='editor';renderModal();
+}
+function codeText(){
+ return window.ForgeMonaco?.isMounted()?window.ForgeMonaco.getValue():($('code-input')?.value??draftCode??'');
+}
+function setCodeText(value){
+ draftCode=String(value??'');
+ const field=$('code-input');
+ if(window.ForgeMonaco?.isMounted())window.ForgeMonaco.setValue(draftCode);
+ else if(field){field.value=draftCode;field.dispatchEvent(new Event('input',{bubbles:true}));}
+ draft.script=draftCode;
+ save('cr3-editor-draft',{data:draft,code:draftCode,mode:editorMode});
 }
 function getDraft(){
  for(const k of ['name','emoji','description','type','effect','element','resource','cost','power','weight']){
   const v=$('edit-'+k);if(v)draft[k]=['cost','power','weight'].includes(k)?Number(v.value):v.value;
  }
- draft.script=$('code-input')?.value??draftCode;
- save('cr3-editor-draft',{data:draft,code:draft.script,mode:editorMode});
+ draft.script=codeText();
+ draftCode=draft.script;
+ save('cr3-editor-draft',{data:draft,code:draftCode,mode:editorMode});
  return draft;
 }
 function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><div class="preview-top"><span>✦ ${TYPE[draft.type][0]}</span><span>${e(ELEMENT[draft.element]||'無')}属性</span></div><div class="preview-emoji">${e(draft.emoji||'✨')}</div><h2>${e(draft.name||'新しいカード')}</h2><p>${e(draft.description||'あなただけのカードを創造しよう。')}</p><div class="preview-bottom"><b>威力 ${Number(draft.power)||0}</b><b>コスト ${Number(draft.cost)||0} ${draft.resource==='gold'?'G':'MP'}</b></div></div>`;}
 const FX={attack:[['normal','通常'],['drain','HP吸収'],['poison','毒'],['burn','炎上'],['pierce','防御貫通'],['wild','ギャンブル'],['freeze','凍結'],['chain','連鎖攻撃'],['double_hit','追撃'],['siphon','MP強奪'],['guard_hunt','防御札の枚数×威力']],defense:[['normal','通常'],['reflect','等倍反射'],['reflect_full','全反射'],['reflect_double','2倍反射'],['redirect','ランダム転送'],['scatter','攻撃分散'],['nullify','完全無効'],['absorb','魔力吸収'],['counter','反撃'],['mana','MP回復']],magic:[['blast','攻撃魔法'],['drain','HP吸収魔法'],['heal','回復'],['poison','毒'],['freeze','凍結'],['curse','呪い'],['mana','MP補助'],['swap_hp','HP交換'],['mass_poison','全体毒'],['steal_mp','MP強奪'],['scramble','手札一斉交換']],item:[['heal','回復'],['mana','MP回復'],['gold','お金増加'],['draw','カード補充'],['cleanse','浄化'],['lottery','くじ']],guardian:[['sprite','妖精'],['phoenix','不死鳥'],['turtle','玄武'],['storm','雷神'],['muse','月の女神']],omen:[['random','ランダム'],['blessing','祝福'],['meteor','流星雨'],['exchange','資源交換']]};
 const input=(id,label,value,kind='text',opts={})=>`<label class="forge-field"><span>${label}</span><input id="edit-${id}" type="${kind}" ${opts.max?'max="'+opts.max+'"':''} ${kind==='number'?'min="0"':''} value="${e(value)}" ${opts.maxLength?'maxlength="'+opts.maxLength+'"':''}/></label>`;
 function select(id,label,arr,val){return `<label class="forge-field"><span>${label}</span><select id="edit-${id}">${arr.map(([v,t])=>`<option value="${e(v)}" ${v===val?'selected':''}>${e(t)}</option>`).join('')}</select></label>`;}
-function renderModal(){const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
+function renderModal(){window.ForgeMonaco?.dispose();const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
  if(modal==='rules'){parent.innerHTML=`<div class="modal-backdrop"><div class="paper modal rules-dialog"><div class="modal-title"><h2>📖 あそびかた</h2><button class="icon-button" data-action="close">×</button></div><p>2〜8人で遊べる、ランダムな手札を使った生き残りカードバトルです。</p><ol><li>手札は最初に9枚。使用した枚数だけランダムに補充されます。</li><li>攻撃カードは1〜3枚同時使用可能。相手は防御カードで防ぎます。</li><li>奇跡・道具・守護神・超常現象を使って逆転を狙いましょう。</li><li>毒や凍結などの状態異常はターン開始時に効果があります。</li><li>最後に生き残った人が勝利です。</li></ol><button class="primary" data-action="close">閉じる</button></div></div>`;return;}
  parent.innerHTML=`<div class="modal-backdrop"><section class="forge-shell" role="dialog" aria-label="カード工房" aria-modal="true">
  <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>自分だけの奇跡をつくろう</small></h2></div><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div>
@@ -116,7 +130,7 @@ function renderModal(){const parent=$('modal-root');if(!modal){parent.innerHTML=
  ${select('element','属性',Object.entries(ELEMENT),draft.element)}${select('resource','コストの支払い方法',[['mp','MPを消費'],['gold','お金を消費']],draft.resource)}${input('description','カードの説明',draft.description,'text',{maxLength:8000})}
  </div></div><div class="forge-right" id="forge-code-panel" role="tabpanel"><div class="code-title"><div><span class="python-chip">🐍 Python風スクリプト</span><h3>効果プログラム（任意）</h3></div><button class="secondary small" data-action="validate">✓ 構文チェック</button><button class="primary small" data-action="test-code">🧪 実行テスト</button></div>
  <div class="forge-mobile-actions"><button class="secondary small" data-action="code-only">📝 完全なカード例</button><button class="secondary small" data-action="form-to-code">🧩 フォームからコード生成</button><button class="secondary small" data-action="snippet" data-id="shieldhunt">🎯 盾狩り</button><button class="secondary small" data-action="snippet" data-id="counter">↩️ 反撃</button></div><div class="snippet-row"><span>テンプレート：</span><button data-action="snippet" data-id="lifesteal">吸血</button><button data-action="snippet" data-id="gamble">ギャンブル</button><button data-action="snippet" data-id="guardian">守護神</button><button data-action="snippet" data-id="counter">反撃</button><button data-action="snippet" data-id="shieldhunt">盾狩り</button><button data-action="snippet" data-id="superguard">超防御</button></div>
- <div class="forge-quick-keys" aria-label="コード入力補助"><button data-action="insert" data-code="    ">⇥4字</button><button data-action="insert" data-code=":">:</button><button data-action="insert" data-code="()">()</button><button data-action="insert" data-code="&quot;&quot;">“”</button><button data-action="insert" data-code="def on_play():&#10;    ">▶ on_play</button><button data-action="insert" data-code="def on_guard():&#10;    ">🛡 on_guard</button><button data-action="insert" data-code="for item in target.hand:&#10;    ">♻ for</button></div><div class="code-window"><div class="code-toolbar"><span class="three-dots"><i></i><i></i><i></i></span><b>card_effect.py</b><span>安全なPython構文サブセット</span></div><div class="code-region"><div id="code-lines" class="line-numbers"></div><pre id="code-highlight" aria-hidden="true"></pre><textarea id="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Python効果プログラム">${e(draftCode)}</textarea></div></div>
+ <div class="forge-quick-keys" aria-label="コード入力補助"><button data-action="insert" data-code="    ">⇥4字</button><button data-action="insert" data-code=":">:</button><button data-action="insert" data-code="()">()</button><button data-action="insert" data-code="&quot;&quot;">“”</button><button data-action="insert" data-code="def on_play():&#10;    ">▶ on_play</button><button data-action="insert" data-code="def on_guard():&#10;    ">🛡 on_guard</button><button data-action="insert" data-code="for item in target.hand:&#10;    ">♻ for</button></div><div class="code-window"><div class="code-toolbar"><span class="three-dots"><i></i><i></i><i></i></span><b>card_effect.py</b><button class="code-fallback-toggle" data-action="code-lightweight" title="スマホや低速回線では軽量入力に変更できます">軽量入力</button><span id="code-editor-status" aria-live="polite">Monaco Editor / Python補完対応</span></div><div class="code-region"><div id="code-lines" class="line-numbers"></div><pre id="code-highlight" aria-hidden="true"></pre><textarea id="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Python効果プログラム">${e(draftCode)}</textarea><div id="monaco-editor" aria-label="Monaco Pythonエディター"></div></div></div>
  <div class="code-diagnostic" id="code-feedback">✦ 書いたコードは構文チェックの後、実行テストできます。</div><pre id="code-test-output" class="code-diagnostic" aria-live="polite" style="display:none;white-space:pre-wrap;overflow:auto;max-height:220px;font:12px/1.5 monospace"></pre>
  <div class="api-heading">オブジェクト・関数ガイド</div><div class="forge-help-open"><b>📘 card / self / target / players</b><p>card.name, card.type, card.power, card.cost, self.hp, target.mp, target.hand、item.type, item.power などを参照できます。</p><p>for item in target.hand: で全札を走査できます。len(target.hand) は枚数、count_cards(target.hand, "defense") は防御札枚数、sum_power(target.hand, "defense") は防御札の総威力です。</p><p>API一覧：<a href="CARD_API.md" target="_blank" rel="noopener">CARD_API.md</a></p></div><div class="api-heading">使用できる関数 <small>押すとコードへ挿入</small></div><div class="api-pills">${['damage_dealt()','damage_taken()','len(target.hand)','count_cards(target.hand, "defense")','sum_power(target.hand, "attack")','target.hand[0].type','card.power','target.hp','target_defense_cards()','my_defense_cards()','incoming_damage()','boost_attack(10)','boost_defense(10)','my_hp()','target_hp()','my_mp()','target_mp()','round_number()','chance(0.5)','randint(1, 6)','damage("target", 5)','heal("self", 5)','status("target", "poison", 2)','shield("self", 5)','summon("self", "phoenix", 3)','resource("self", "mp", 3)','draw("self", 1)','discard("target", "defense", 3)','swap_hands()','multiply_attack(3)','phenomenon("random")'].map(s=>`<button data-action="insert" data-code="${e(s)}">${e(s)}</button>`).join('')}</div>
  <details class="forge-help"><summary>関数の説明・Pythonの対応範囲</summary><p>コード冒頭の <code>card.name</code> / <code>card.description</code> / <code>card.cost</code> などですべて指定できます。使えるのは <code>def on_play():</code>、<code>on_hit()</code>、<code>on_defend()</code>、<code>on_block()</code>、<code>on_guard()</code>、<code>on_turn_start()</code>。変数、四則演算、<code>if / elif / else</code>、比較、<code>and / or / not</code>、<code>min / max / int / round</code> などが使えます。<code>damage_dealt()</code> は防御やバリア適用後の実ダメージ。<code>damage_taken()</code> は防御時に受けた実ダメージです。<code>target_defense_cards()</code>で相手が持つ防御札の枚数を取得できます。<code>boost_attack(n)</code>は攻撃の合計威力を加算し、<code>on_guard()</code>中の<code>boost_defense(n)</code>は防御値を加算します。攻撃・防御札は手札にある枚数だけ重ねられます。対象は <code>self</code> / <code>target</code> / <code>everyone</code> / <code>all_enemies</code>。カード配列用のforループに対応。import、無制限ループ、ファイル操作は非対応です。</p></details>
@@ -124,14 +138,22 @@ function renderModal(){const parent=$('modal-root');if(!modal){parent.innerHTML=
  </section></div>`;initCode();}
 function syntaxHighlight(src){return e(src).replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g,'<span class="sy-string">$1</span>').replace(/\b(def|if|elif|else|and|or|not|True|False|None)\b/g,'<span class="sy-keyword">$1</span>').replace(/\b(on_play|on_hit|on_defend|on_block|on_guard|on_turn_start|target_defense_cards|my_defense_cards|incoming_damage|boost_attack|boost_defense|damage_dealt|damage_taken|heal|damage|shield|status|summon|chance|randint|min|max|my_hp|target_hp|resource)\b/g,'<span class="sy-call">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="sy-num">$1</span>');}
 function setEditorMode(mode){
- editorMode=mode;const layout=document.querySelector('.forge-layout');if(!layout)return;
- save('cr3-editor-draft',{data:draft,code:$('code-input')?.value??draftCode,mode});
+ const layout=document.querySelector('.forge-layout');if(!layout)return;
+ if(mode==='code'&&!codeText().trim())setCodeText(CardForge.toCode(draft));
+ editorMode=mode;
+ save('cr3-editor-draft',{data:draft,code:codeText(),mode});
  layout.classList.toggle('forge-code-mode',mode==='code');layout.classList.toggle('forge-form-mode',mode==='form');
  document.querySelectorAll('.forge-tabs [role="tab"]').forEach(btn=>{
- const active=btn.dataset.action===(mode==='code'?'mode-code':'mode-form');
- btn.classList.toggle('active',active);btn.setAttribute('aria-selected',String(active));
+  const active=btn.dataset.action===(mode==='code'?'mode-code':'mode-form');
+  btn.classList.toggle('active',active);btn.setAttribute('aria-selected',String(active));
  });
- if(mode==='code')$('code-input')?.focus();
+ if(mode==='code'){
+  window.ForgeMonaco?.mount({
+   hostId:'monaco-editor',textareaId:'code-input',
+   onChange:value=>{draftCode=value;getDraft();},
+   onStatus:message=>{const status=$('code-editor-status');if(status)status.textContent=message;}
+  }).then(()=>window.ForgeMonaco?.layout());
+ }
 }
 function initCode(){const area=$('code-input'),pre=$('code-highlight'),lines=$('code-lines');if(!area)return;
  const sync=()=>{pre.innerHTML=syntaxHighlight(area.value)+'\n';lines.innerHTML=Array.from({length:Math.max(1,area.value.split('\n').length)},(_,i)=>`<span>${i+1}</span>`).join('');pre.scrollTop=area.scrollTop;pre.scrollLeft=area.scrollLeft;lines.scrollTop=area.scrollTop;};
@@ -144,8 +166,8 @@ function initCode(){const area=$('code-input'),pre=$('code-highlight'),lines=$('
    ev.preventDefault();area.setRangeText('\n'+indent+extra,area.selectionStart,area.selectionEnd,'end');draftCode=area.value;sync();
   }
  });
- sync();}
-function validateCode(show=true){try{const source=$('code-input')?.value||'';const ast=PyCards.compile(source);const message=`✓ 構文OK！ ${Object.keys(ast.handlers).map(k=>'on_'+k).join(' / ')} が登録されます。設定項目：${Object.keys(ast.meta||{}).join(' / ')||'フォームから取得'}`;
+ sync();if(editorMode==='code')setEditorMode('code');}
+function validateCode(show=true){try{const source=codeText();const ast=PyCards.compile(source);const message=`✓ 構文OK！ ${Object.keys(ast.handlers).map(k=>'on_'+k).join(' / ')} が登録されます。設定項目：${Object.keys(ast.meta||{}).join(' / ')||'フォームから取得'}`;
  $('code-feedback').textContent=message;$('code-feedback').className='code-diagnostic valid';if(show)toast(message);return ast;
  }catch(err){$('code-feedback').textContent='⚠ '+err.message;$('code-feedback').className='code-diagnostic invalid';if(show)toast(err.message,true);return null;}}
 function testCardCode(){
@@ -199,41 +221,58 @@ function testCardCode(){
   $('code-feedback').className='code-diagnostic invalid';
  }
 }
-function saveCard(){getDraft();if(draft.script.trim()&&!validateCode(false)){toast('コードにエラーがあるため保存できません',true);return;}
+function saveCard(){
+ getDraft();
+ // In form mode, prior card.* code must NEVER override visible form fields.
+ // In code mode, card.* headers and handlers are the authoritative source.
+ const payload=CardForge.payload(draft,editorMode,codeText());
+ if(editorMode==='code'&&(!payload.script.trim()||!validateCode(false))){
+  toast('コードにエラーがあるため保存できません',true);return;
+ }
  let normalized;
- try{normalized=GameEngine.card(draft,name||'作者');}catch(err){toast(err.message,true);return;}
- draft={...draft,...Object.fromEntries(['name','description','type','emoji','power','cost','resource','element','weight','effect'].map(k=>[k,normalized[k]]))};
- custom.push({...draft,localId:crypto.randomUUID()});save('cr3-cards',custom);localStorage.removeItem('cr3-editor-draft');modal='';renderModal();render();toast('「'+draft.name+'」を保存しました！ 対戦部屋から追加できます。');}
+ try{normalized=GameEngine.card(payload,name||'作者');}
+ catch(err){toast(err.message,true);return;}
+ const fields=['name','description','type','emoji','power','cost','resource','element','weight','effect'];
+ const savedCard={...payload,...Object.fromEntries(fields.map(k=>[k,normalized[k]]))};
+ custom.push({...savedCard,localId:crypto.randomUUID()});save('cr3-cards',custom);
+ localStorage.removeItem('cr3-editor-draft');
+ modal='';renderModal();render();
+ toast('「'+savedCard.name+'」を保存しました！ 対戦部屋から追加できます。');
+}
 function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card};delete data.localId;act('publish',{card:data});}
 function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}$('forge-preview').innerHTML=editorCard();}
-function editCodeInsert(str){const el=$('code-input');if(!el)return;el.focus();const start=el.selectionStart,end=el.selectionEnd;el.setRangeText(str,start,end,'end');el.dispatchEvent(new Event('input'));}
+function editCodeInsert(str){
+ if(window.ForgeMonaco){window.ForgeMonaco.insert(str);return;}
+ const el=$('code-input');if(!el)return;
+ el.focus();el.setRangeText(str,el.selectionStart,el.selectionEnd,'end');
+ el.dispatchEvent(new Event('input',{bubbles:true}));
+}
 async function copyInvite(){const transport=localStorage.getItem('cr_transport_mode');const link=location.origin+location.pathname+'?room='+state.room+(transport==='firebase'?'&transport=firebase':'');try{await navigator.clipboard.writeText(link);toast('招待リンクをコピーしました');}catch{prompt('このURLを友達に送ってください',link);}}
 document.addEventListener('input',ev=>{if(modal==='editor'&&ev.target?.id?.startsWith('edit-'))updatePreview();});
 document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
  switch(a){case 'create':case 'join':joinGame(a);break;case 'invite':copyInvite();break;case 'leave':leave();break;
- case 'editor':openEditor();break;case 'rules':modal='rules';renderModal();break;case 'close':modal='';renderModal();break;
+ case 'editor':openEditor();break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
  case 'start':act('start');break;case 'reset':act('reset');break;case 'add-bot':act('bot',{action:'add'});break;case 'remove-bot':act('bot',{action:'remove'});break;
  case 'card':selectCard(id);break;case 'target':target=id;render();break;case 'play':play();break;case 'defend':play();break;case 'take-hit':chosen.clear();act('defend',{cards:[]});break;
  case 'pass':act('pass');break;case 'pray':act('pray');break;case 'trade':act('trade',{mode:'heal'});break;
  case 'publish':publishCard(id);break;case 'remove':act('removeCard',{id});break;case 'delete':custom=custom.filter(c=>c.localId!==id);save('cr3-cards',custom);render();break;
  case 'form-to-code':{
  getDraft();
- const keys=['name','description','type','emoji','power','cost','resource','effect','element','weight'];
- const code=keys.map(k=>'card.'+k+' = '+JSON.stringify(draft[k])).join('\n');
- const current=$('code-input')?.value||'',start=current.search(/^def on_/m),funcs=start>=0?current.slice(start):'';
- draftCode=code+(funcs.startsWith('def on_')?'\n\n'+funcs:'\n\ndef on_play():\n    boost_attack(0)');
- if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}
- setEditorMode('code');toast('フォームの設定をコード化しました');break;
+ setCodeText(CardForge.toCode(draft));
+ setEditorMode('code');
+ toast('フォームの全設定と基本効果をコードに変換しました');break;
  }
- case 'code-only':setEditorMode('code');draftCode=FULL_CARD_TEMPLATE;if($('code-input')){$('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));}toast('名前・説明・威力・コストまで、コードだけで指定できます');break;case 'mode-form':getDraft();setEditorMode('form');break;case 'mode-code':getDraft();setEditorMode('code');break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
+ case 'code-only':setEditorMode('code');setCodeText(FULL_CARD_TEMPLATE);toast('コードだけで名前・説明・コストまで指定できます');break;
+ case 'mode-form':getDraft();setEditorMode('form');break;
+ case 'mode-code':getDraft();setEditorMode('code');break;
+ case 'code-lightweight':window.ForgeMonaco?.fallback();break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
  case 'snippet':{
  getDraft();
- const current=draftCode||'';
- const header=current.split(/^def on_/m)[0];
- draftCode=(header.includes('card.')?header.trimEnd()+'\n\n':'')+TEMPLATES[id];
- $('code-input').value=draftCode;$('code-input').dispatchEvent(new Event('input'));break;
+ const current=codeText(),header=current.split(/^def on_/m)[0];
+ const next=(header.includes('card.')?header.trimEnd()+'\n\n':'')+TEMPLATES[id];
+ setCodeText(next);break;
  }
  case 'insert':editCodeInsert(btn.dataset.code);break;
  } }catch(err){toast(err.message,true);}});
