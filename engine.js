@@ -204,6 +204,15 @@ function crPhenomenon(r,key){
 }
 function crRules(r,card,event,ctx){
   if(!card.script)return;
+  let popupBudget=0;
+  const applyHp=(p,value)=>{
+    if(!crLive(p))return;
+    const next=crSafeDamage(value),old=p.hp;
+    p.hp=next;
+    if(old!==next)crLog(r,'❤️ '+p.name+' のHP '+old+' → '+next);
+    if(!crLive(p))crEliminate(r,p,card.name+'でHPが0になった');
+  };
+  const changeHand=(who,callback)=>crRecipients(r,who,ctx).forEach(callback);
   try{
   const result=PyCards.run(card.program || PyCards.compile(card.script),event,{r,card,self:ctx.self,target:ctx.target,damageDealt:ctx.damageDealt||0,damageTaken:ctx.damageTaken||0,incomingDamage:ctx.incomingDamage||0,ownDefenseCount:ctx.ownDefenseCount}, {
     damage:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{
@@ -212,6 +221,58 @@ function crRules(r,card,event,ctx){
       else crHit(r,p,n,'自作カードで');
     }),
     heal:(who,n)=>crRecipients(r,who,ctx).forEach(p=>crHeal(r,p,n,'自作カードで')),
+    set_hp:(who,n)=>changeHand(who,p=>applyHp(p,n)),
+    set_resource:(who,key,n)=>changeHand(who,p=>{p[key]=crSafeDamage(n);crLog(r,'💠 '+p.name+' '+key+' → '+p[key])}),
+    set_shield:(who,n)=>changeHand(who,p=>{p.shield=crSafeDamage(n);crLog(r,'🛡 '+p.name+' のバリア → '+p.shield)}),
+    set_status:(who,key,n)=>changeHand(who,p=>{p.status[key]=crSafeDamage(n);crLog(r,'🧿 '+p.name+' '+key+' → '+p.status[key]+'ターン')}),
+    remove_status:(who,key)=>changeHand(who,p=>{p.status[key]=0;crLog(r,'✨ '+p.name+' の'+key+'を解除')}),
+    heal_percent:(who,percent)=>changeHand(who,p=>crHeal(r,p,crSafeDamage(Math.floor(p.hp*percent/100)),'割合回復で')),
+    draw_type:(who,type,n)=>changeHand(who,p=>{
+      const pool=CR_BASE.concat(r.cards).filter(c=>c.type===type);
+      if(!pool.length)return;
+      const count=Math.min(n,64);
+      for(let i=0;i<count;i++){
+        const total=pool.reduce((sum,c)=>sum+(Number(c.weight)||1),0);
+        let draw=Math.random()*total,chosen=pool[pool.length-1];
+        for(const candidate of pool){draw-=(Number(candidate.weight)||1);if(draw<0){chosen=candidate;break;}}
+        p.hand.push({...chosen,uid:crUid()});
+      }
+      if(count)crLog(r,'🎴 '+p.name+' は'+type+'を'+count+'枚引いた');
+    }),
+    duplicate:(who,type,n)=>changeHand(who,p=>{
+      const candidates=p.hand.filter(c=>type==='any'||c.type===type);
+      if(!candidates.length)return;
+      const count=Math.min(n,64);
+      for(let i=0;i<count;i++)p.hand.push({...candidates[crRand(candidates.length)],uid:crUid()});
+      if(count)crLog(r,'🪄 '+p.name+' は手札を'+count+'枚複製した');
+    }),
+    clear_hand:who=>changeHand(who,p=>{const count=p.hand.length;p.hand=[];crLog(r,'🗑 '+p.name+' の手札'+count+'枚を消した')}),
+    give:(who,key,n)=>changeHand(who,p=>{
+      if(p.id===ctx.self.id)return;
+      const amount=Math.min(ctx.self[key],n);
+      ctx.self[key]-=amount;p[key]=crAdd(p[key],amount);
+      if(amount)crLog(r,'🤝 '+ctx.self.name+' → '+p.name+' '+key+'を'+amount+'渡した');
+    }),
+    swap_stat:key=>{
+      if(!ctx.target||ctx.target.id===ctx.self.id||!crLive(ctx.target))return;
+      const old=ctx.self[key];ctx.self[key]=ctx.target[key];ctx.target[key]=old;
+      crLog(r,'🔄 '+ctx.self.name+' と '+ctx.target.name+' の'+key+'を交換');
+    },
+    shuffle_hand:who=>changeHand(who,p=>{
+      for(let i=p.hand.length-1;i>0;i--){const j=crRand(i+1);[p.hand[i],p.hand[j]]=[p.hand[j],p.hand[i]];}
+      crLog(r,'🎲 '+p.name+' の手札をシャッフルした');
+    }),
+    popup:(title,detail,icon,theme)=>{
+      if(++popupBudget>6)return;
+      r.customPopupSeq=(r.customPopupSeq||0)+1;
+      r.customPopups=r.customPopups||[];
+      const evt={seq:r.customPopupSeq,title:crText(title,70),detail:crDescription(detail).slice(0,420),
+        icon:crText(icon||'✨',12),theme,card:crText(card.name,64),at:Date.now()};
+      r.customPopups.push(evt);
+      if(r.customPopups.length>12)r.customPopups.splice(0,r.customPopups.length-12);
+      crLog(r,'📣 '+evt.card+'：'+evt.title);
+    },
+    battle_log:message=>crLog(r,'📜 '+crText(message,240)),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
     shield:(who,n)=>crRecipients(r,who,ctx).forEach(p=>{p.shield=crAdd(p.shield,n)}),
     resource:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>{p[k]=crAdd(p[k],n)}),
@@ -425,7 +486,7 @@ function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shi
   status:{poison:0,burn:0,freeze:0,curse:0,weak:0},guardian:null,hand:[]};}
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
   turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:(r.pending.cards||[]).map(c=>({name:c.name,emoji:c.emoji,type:c.type,power:c.power}))}:null,
-  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,
+  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,customPopups:r.customPopups||[],
   players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
   me:p.id,hand:p.hand,cards:r.cards,customCards:r.cards,log:r.log.slice(0,14),baseCardCount:CR_BASE.length};}
@@ -495,7 +556,7 @@ function crShop(r,p,item,targetId){
   crVisual(r,'shop','購入！',p.name+'｜'+offer.name+' ¥'+offer.cost,offer.icon,item);
 }
 function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
-  turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],created:Date.now(),updated:Date.now()};}
+  turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],customPopups:[],customPopupSeq:0,created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
   if(msg.type==='publish'){
     if(JSON.stringify(msg.card||{}).length>131072)throw Error('カードJSONは128KiB以内にしてください');
@@ -515,7 +576,7 @@ function crApply(r,msg,p){
     }
   }else if(msg.type==='start'){
     if(p.id!==r.host||!['lobby','finished'].includes(r.phase)||r.players.length<2)throw Error('開始できません（2人以上必要）');
-    r.phase='game';r.pending=null;r.reactionQueue=[];r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
+    r.phase='game';r.pending=null;r.reactionQueue=[];r.customPopups=[];r.customPopupSeq=0;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
     for(let i=r.players.length-1;i>0;i--){const j=crRand(i+1);[r.players[i],r.players[j]]=[r.players[j],r.players[i]];}
     r.turnIndex=0;
     r.players.forEach(x=>{Object.assign(x,crPlayer(x.id,x.name,x.bot));crDraw(r,x,9);});
