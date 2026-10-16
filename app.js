@@ -313,7 +313,7 @@ function editCodeInsert(str){
  el.focus();el.setRangeText(str,el.selectionStart,el.selectionEnd,'end');
  el.dispatchEvent(new Event('input',{bubbles:true}));
 }
-async function copyInvite(){const transport=localStorage.getItem('cr_transport_mode');const link=location.origin+location.pathname+'?room='+state.room+(transport==='firebase'?'&transport=firebase':'');try{await navigator.clipboard.writeText(link);toast('招待リンクをコピーしました');}catch{prompt('このURLを友達に送ってください',link);}}
+async function copyInvite(){const transport=localStorage.getItem('cr_transport_mode');const link=location.origin+location.pathname+'?room='+state.room+((window.ChaosTransport?.mode()||transport)!=='p2p'?'&transport='+encodeURIComponent(window.ChaosTransport?.mode()||transport):'');try{await navigator.clipboard.writeText(link);toast('招待リンクをコピーしました');}catch{prompt('このURLを友達に送ってください',link);}}
 document.addEventListener('input',ev=>{
  if(modal!=='editor')return;
  if(ev.target?.id==='forge-api-search'){
