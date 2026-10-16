@@ -186,8 +186,8 @@ Cloudflare Workers + SQLite-backed Durable Objectsの無料枠で実行できま
 3. `npx wrangler login` を実行してCloudflareへのアクセスを許可。
 4. `npx wrangler deploy` を実行。初回はWorkerとSQLite-backed Durable Objectが作成されます。
 5. 表示される `https://chaos-relic-relay.<サブドメイン>.workers.dev` の **https://をwss://にしたURL** を控えます。
-6. GitHub Pages版のゲームを開き、ヘッダーの「📡 通信」を押し、WSS中継URLを入力して保存（ページは再読み込みされます）。
-7. 友達にも同じWSS中継URLを登録してもらい、通常通り部屋コードで参加します。
+6. リポジトリの **[relay-config.js](./relay-config.js)** を開いて `window.CHAOS_RELAY_URL = 'wss://実際のWorkerのホスト名.workers.dev';` に変更し、mainへコミットしてください。ここに実際のURLを一度設定するだけで、GitHub Pagesを開く全員に共通設定が届きます。
+7. ゲームの「📡 通信」で Cloudflare WebSocket が「利用可能」になるので選びます。新規訪問者にはCloudflareが自動的に標準方式として適用されます。ほかのプレイヤーへは部屋の招待リンクを共有するだけで構いません。
 
 **注意事項**
 
@@ -195,7 +195,8 @@ Cloudflare Workers + SQLite-backed Durable Objectsの無料枠で実行できま
 - CloudflareはWebSocketメッセージを参加者へ中継するだけなので、ホストを閉じると部屋が終了します。Firebaseは最新のRulesを公開すると、参加者が新ホストを引き継げます。
 - 自作カードによる不正や荒らしを防ぐ必要がある場合は、認証・レート制限・セキュリティルールを追加してください。身内の非公開ルームを想定しています。
 - Cloudflare無料枠には利用量の制限があり、将来的なサービス条件の変更にも影響されます。
-- 中継方式を使わないときは「📡 通信」→「P2Pに戻す」で解除してください。
+- 中継方式を使わないときは「📡 通信」で「WebRTC P2P」を選択します。Firebaseも同じ画面から選択できます。
+- **ブラウザにURLやFirebase設定を貼り付ける欄はありません。** 通信方式だけ選択します。サイトに共通Cloudflare URLがまだない場合は「管理者による設定待ち」と表示され、既存のFirebase設定（[firebase-config.js](./firebase-config.js)）が初期方式になります。
 - [Cloudflare Durable Objectsガイド](https://developers.cloudflare.com/durable-objects/get-started/) / [WebSocketガイド](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
 
 中継ルーティングのローカル模擬テスト：`node tests/relay-worker.test.mjs`。
@@ -332,3 +333,17 @@ def on_play():
 - 作成したカードのローカル保存は引き続き `localStorage.cr3-cards` です。**別のスマートフォン・ブラウザへの自動同期は未実装**です。元の端末に残るカードは消しません。
 - 検証: `node tests/card-reedit.test.js`、`node tests/card-editor-ui.test.js`。
 
+
+## 2026-10-16：全端末共通の通信設定・ゲーム内の関数図鑑
+
+**通信設定はサイト側で一元管理**します。Cloudflare中継URLは `relay-config.js` の `window.CHAOS_RELAY_URL` に一度登録してください。Firebase Webアプリの公開用設定は `firebase-config.js` に登録済みです。友達はどちらの接続情報も入力する必要がありません。ブラウザ内に古い個別中継URLが残っている場合のみ、共通URL登録前の互換経路として使用できます。共通URLが登録されるとそちらが優先されます。
+
+- **初期通信方式**：有効な共通Cloudflare URLがあれば WebSocket中継、未設定なら共通Firebase、Firebaseも未設定なら P2P。利用者が「📡 通信」で明示的に方式を選んだ場合、その端末の選択を保持します。
+- **招待リンク**：選択中の方式が `relay` / `firebase` なら `?transport=relay` / `?transport=firebase` を付けて共有し、参加者側でも同じ共通設定を選択します。
+- **旧設定との互換**：以前の `localStorage.cr_relay_url` は共通URLがまだない場合にのみ参照します。Firebaseの個別保存設定も共通設定がない場合のみ参照します。通信設定画面からキーやURLを入力する欄はなくしました。
+- **大学Wi-Fi向け**：FirebaseのLong Polling切替は残しました。WebSocketが制限される回線で、許可された通信の範囲で利用してください。
+- **関数図鑑**：ヘッダーの「📚 関数図鑑」（スマートフォンでは📚アイコン）、または「カード工房 → 📚 関数図鑑」を開くと、81種類の実装済みAPIを日本語検索・用途別フィルタ・引数・戻り値・実装例・コピー機能付きで閲覧できます。「はじめに」と「発動タイミング」のタブにはサンプルカード・変数一覧・6つのイベントの例を掲載しました。内容は `PyCards.docs` を使用してゲームの実装と同期します。
+
+**重要**：リポジトリにはまだ有効なCloudflare中継URLが設定されていません。Workerをデプロイし、割り当てられた正しい `wss://...` を `relay-config.js` に登録する必要があります。サイト上でCloudflareを無理に選べるようにしたり、架空の接続先を配布したりしない設計です。現在のWorkerは中継のみで、ゲーム判定はホストのブラウザが実行します。
+
+回帰テスト：`node tests/site-config-api-guide.test.js`。
