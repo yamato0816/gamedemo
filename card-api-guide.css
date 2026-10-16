@@ -119,3 +119,9 @@ body.cr-api-guide-open{overflow:hidden}
  .header-right .header-cta{padding:8px 8px;font-size:10px}
  .brand{gap:5px}
 }
+
+
+.cr-api-arguments{margin:0 0 14px;padding:12px 13px;background:#f4f7ef;border:1px solid #e3eade;border-radius:8px}
+.cr-api-arguments>strong{display:block;font-size:10px;color:#57725b;margin-bottom:7px}
+.cr-api-arguments ol{margin:0;padding-left:19px;color:#627665;font-size:11px;line-height:1.75}
+.cr-api-arguments li{padding-left:2px;margin:3px 0;overflow-wrap:anywhere}
