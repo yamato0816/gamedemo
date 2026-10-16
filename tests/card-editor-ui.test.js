@@ -61,9 +61,9 @@ assert.equal(run('editingCardId'),null,'new card must not be treated as an edit'
 assert.equal(run('editorMode'),'form','new cards default to the form tab');
 assert.ok(nodes['modal-root'].innerHTML.includes('新しいカードを保存'));
 // A published legacy card (without a local source ID) can also be edited.
-run('roomForTest = GameEngine.create("ROOMABC", "host", "Alice"); GameEngine.join(roomForTest,"guest","Bob");');
-run('GameEngine.apply(roomForTest,"host",{type:"publish",card:{name:"公開済み旧カード",type:"item",effect:"gold",power:12,cost:0,emoji:"🪙"}});');
-run('state=GameEngine.view(roomForTest,"host");net.ready=true;');
+run('globalThis.roomForTest = GameEngine.create("ROOMABC", "host", "Alice"); GameEngine.join(globalThis.roomForTest,"guest","Bob");');
+run('GameEngine.apply(globalThis.roomForTest,"host",{type:"publish",card:{name:"公開済み旧カード",type:"item",effect:"gold",power:12,cost:0,emoji:"🪙"}});');
+run('state=GameEngine.view(globalThis.roomForTest,"host");net.ready=true;');
 const publishedId=run('state.customCards[0].id');
 run('openEditor(null, state.customCards[0].id)');
 assert.equal(run('draft.name'),'公開済み旧カード');
