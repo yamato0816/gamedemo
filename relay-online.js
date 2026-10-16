@@ -5,7 +5,7 @@ const generateCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(7)),n=>a
 const makeId=()=>crypto.randomUUID().replace(/-/g,'').slice(0,22);
 class RelayOnline {
  constructor({onState,onInfo,onError,onClosed}){Object.assign(this,{onState,onInfo,onError,onClosed});this.socket=null;this.isHost=false;this.ready=false;this.room=null;this.code='';this.clock=null;this.peers=new Set();this.heartbeat=0;this.id='';}
- url(role){const base=localStorage.getItem('cr_relay_url')?.trim();if(!/^wss:\/\//i.test(base||''))throw Error('通信設定に wss:// の中継URLを指定してください');return base.replace(/\/$/,'')+'/room/'+this.code+'?role='+role+'&id='+this.id;}
+ url(role){const base=root.ChaosTransport?.relayUrl()||'';if(!/^wss:\/\//i.test(base||''))throw Error('通信設定に wss:// の中継URLを指定してください');return base.replace(/\/$/,'')+'/room/'+this.code+'?role='+role+'&id='+this.id;}
  _open(role,name){return new Promise((resolve,reject)=>{
    let finished=false;const settle=err=>{if(finished)return;finished=true;clearTimeout(timeout);if(err)reject(err);else resolve(this.code);};
    let ws;try{ws=new WebSocket(this.url(role));}catch(err){reject(err);return;}this.socket=ws;
