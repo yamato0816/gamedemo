@@ -114,3 +114,42 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
  .forge-saved-entry button{min-height:36px}
  .shared-card button{min-height:32px}
 }
+
+
+/* Mode selection: URLs live in site config; users only choose a transport. */
+.cr-transport-backdrop{z-index:1480}
+.cr-transport-dialog{width:min(95vw,650px);max-height:93dvh;overflow-y:auto;padding:20px;background:#fffefb;box-shadow:0 18px 66px #0006}
+.cr-transport-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:11px}
+.cr-transport-title .icon-button{flex:none}
+.cr-transport-kicker{color:#688a70;font-size:9px;letter-spacing:.17em;font-weight:800}
+.cr-transport-title h2{font-size:22px;color:#294631;margin:4px 0}
+.cr-transport-intro{font-size:12px;color:#708071;line-height:1.8;margin:0 0 16px}
+.cr-transport-choice{display:flex;flex-direction:column;gap:10px;background:#fafbf7;border:1px solid #dce4da;border-radius:12px;padding:15px;margin-top:10px}
+.cr-transport-choice.is-current{border-color:#6c9e78;box-shadow:inset 3px 0 #6b9a74;background:#f4faf0}
+.cr-transport-choice.is-unavailable{opacity:.76}
+.cr-transport-choice-head{display:flex;align-items:center;gap:12px;min-width:0}
+.cr-transport-icon{font-size:27px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;border-radius:9px;background:#ebf2ea}
+.cr-transport-choice-label{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cr-transport-choice-label strong{font-size:13px;color:#35553e}
+.cr-transport-choice-label>span{font-size:10px;color:#7b8a7d;line-height:1.5}
+.cr-transport-choice-flag{flex:none;border-radius:999px;background:#e1eee2;color:#4a8160;padding:5px 8px;font-size:10px;font-weight:850;white-space:nowrap}
+.cr-transport-choice.is-unavailable .cr-transport-choice-flag{background:#f1eee8;color:#998674}
+.cr-transport-choice-detail{font-size:10px;color:#6d7e6f;line-height:1.65;margin:0;overflow-wrap:anywhere;word-break:break-word}
+.cr-transport-select{background:#3b6349;color:#fff;border:0;border-radius:7px;padding:10px 14px;font-weight:800;font-size:11px;cursor:pointer;align-self:flex-start}
+.cr-transport-select:hover:not(:disabled){background:#2c513a}
+.cr-transport-select:disabled{background:#e2e8e2;color:#667d69;cursor:default}
+.cr-transport-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}
+.cr-transport-foot span{font-size:10px;color:#8b988b;line-height:1.5}
+.forge-header-actions{display:flex;align-items:center;gap:10px}
+.forge-header-actions>[data-api-guide]{flex:none;font-weight:750;white-space:nowrap}
+@media(max-width:730px){
+ .cr-transport-dialog{padding:14px;max-height:96dvh}
+ .cr-transport-title h2{font-size:19px}
+ .cr-transport-choice{padding:11px;gap:8px}
+ .cr-transport-icon{width:36px;height:36px;font-size:23px}
+ .cr-transport-choice-label strong{font-size:12px}
+ .cr-transport-choice-label>span{font-size:10px}
+ .cr-transport-choice-flag{font-size:9px;padding:4px 6px}
+ .forge-header-actions{gap:7px}
+ .forge-header-actions>[data-api-guide]{font-size:11px;min-height:34px;padding:6px 9px}
+}
