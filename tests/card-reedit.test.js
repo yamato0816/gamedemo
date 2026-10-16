@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 let uuid=0;
-const context={console,Math,crypto:{randomUUID:()=>('00000000-0000-4000-9000-'+String(++uuid).padStart(12,'0'))}};
+const context={console,Math,crypto:{randomUUID:()=> (String(++uuid).padStart(8,'0')+'-0000-4000-9000-000000000000')}};
 vm.createContext(context);
 for(const name of ['card-forge-model.js','pycards.js','engine.js']){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'..',name),'utf8'),context,{filename:name});
