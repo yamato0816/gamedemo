@@ -168,7 +168,7 @@ function crValidCard(raw,author){
   const type=raw.type;
   const created={id:'custom-'+crUid(),name,type,power:crHuge(raw.power),effect:CR_EFFECTS[type].includes(raw.effect)?raw.effect:CR_EFFECTS[type][0],
     element:CR_ELEMS.includes(raw.element)?raw.element:'none',cost:crHuge(raw.cost),resource:raw.resource==='gold'?'gold':'mp',
-    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',16),author:crText(author,32),description:crDescription(raw.description),rules:[],script:typeof raw.script==='string'?raw.script.slice(0,30000):'',program:compiled};
+    weight:Math.max(1,crHuge(raw.weight||3)),emoji:crText(raw.emoji||'✨',16),author:crText(author,32),description:crDescription(raw.description),sourceLocalId:typeof raw.sourceLocalId==='string'&&/^[a-zA-Z0-9_-]{8,90}$/.test(raw.sourceLocalId)?raw.sourceLocalId:'',rules:[],script:typeof raw.script==='string'?raw.script.slice(0,30000):'',program:compiled};
   return created;
 }
 function crCanPay(p,cards){return cards.reduce((n,c)=>n+c.cost*(c.resource==='mp'?1:0),0)<=p.mp&&cards.reduce((n,c)=>n+c.cost*(c.resource==='gold'?1:0),0)<=p.gold;}
@@ -560,8 +560,32 @@ function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer
 function crApply(r,msg,p){
   if(msg.type==='publish'){
     if(JSON.stringify(msg.card||{}).length>131072)throw Error('カードJSONは128KiB以内にしてください');
-    if(r.phase!=='lobby')throw Error('対戦前に追加してください');
-    const card=crValidCard(msg.card,p.name);card.owner=p.id;r.cards.push(card);crLog(r,`🎨 ${p.name} が「${card.name}」を追加`);
+    if(r.phase!=='lobby')throw Error('対戦前に追加・更新してください');
+    const card=crValidCard(msg.card,p.name);card.owner=p.id;
+    // Stable local IDs let re-publishing a modified card replace its previous
+    // room copy. Only the original owner may update it.
+    const prior=card.sourceLocalId?r.cards.findIndex(c=>c.owner===p.id&&c.sourceLocalId===card.sourceLocalId):-1;
+    if(prior>=0){
+      card.id=r.cards[prior].id;
+      r.cards[prior]=card;
+      crLog(r,`🎨 ${p.name} が「${card.name}」を更新`);
+    }else{
+      r.cards.push(card);
+      crLog(r,`🎨 ${p.name} が「${card.name}」を追加`);
+    }
+  }else if(msg.type==='updateCard'){
+    if(r.phase!=='lobby')throw Error('公開済みカードの更新は対戦前のみ可能です');
+    if(typeof msg.id!=='string')throw Error('更新するカードのIDが不正です');
+    const index=r.cards.findIndex(c=>c.id===msg.id);
+    if(index<0)throw Error('更新するカードが見つかりません');
+    if(r.cards[index].owner!==p.id)throw Error('他の人のカードは編集できません');
+    if(JSON.stringify(msg.card||{}).length>131072)throw Error('カードJSONは128KiB以内にしてください');
+    const card=crValidCard(msg.card,p.name);
+    card.id=r.cards[index].id;
+    card.owner=p.id;
+    if(!card.sourceLocalId)card.sourceLocalId=r.cards[index].sourceLocalId||'';
+    r.cards[index]=card;
+    crLog(r,`🎨 ${p.name} が「${card.name}」を再編集して更新`);
   }else if(msg.type==='removeCard'){
     if(r.phase!=='lobby')throw Error('対戦前のみ編集できます');
     const idx=r.cards.findIndex(c=>c.id===msg.id&&(c.owner===p.id||r.host===p.id));
