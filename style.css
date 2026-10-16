@@ -153,3 +153,8 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
  .forge-header-actions{gap:7px}
  .forge-header-actions>[data-api-guide]{font-size:11px;min-height:34px;padding:6px 9px}
 }
+
+.cr-transport-longpoll{display:flex;align-items:center;gap:9px;font-size:11px;color:#54705b;background:#f0f6ef;border-radius:8px;padding:9px 10px;cursor:pointer;line-height:1.55}
+.cr-transport-longpoll input{accent-color:#386c4d;width:16px;height:16px;flex:none}
+.cr-transport-poll-save{align-self:flex-start;border:1px solid #bccfbc;background:#fff;color:#3b6947;border-radius:6px;font-size:10px;font-weight:800;padding:7px 11px;cursor:pointer}
+.cr-transport-poll-save:hover{background:#e9f3e7}
