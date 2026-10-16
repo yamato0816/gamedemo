@@ -49,7 +49,7 @@ assert.equal(list[0].localId,previous.localId,'local ID must not change');
 assert.equal(list[0].power,10000);
 run('openEditor("local-old-card-2")');
 assert.equal(run('editorMode'),'code','reopen custom code in code tab');
-run('draftCode = \'card.name = "コード再編集"\ncard.type = "attack"\ncard.power = 456\ncard.cost = 0\ncard.effect = "normal"\'');
+run('draftCode = '+JSON.stringify('card.name = "コード再編集"\ncard.type = "attack"\ncard.power = 456\ncard.cost = 0\ncard.effect = "normal"'));
 run('saveCard()');
 list=JSON.parse(entries.get('cr3-cards'));
 assert.equal(list.length,2);
