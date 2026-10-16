@@ -24,7 +24,8 @@ const initial={name:'吸血の爪',type:'attack',emoji:'🦇',effect:'drain',pow
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}};
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 let name=load('cr3-name',''),custom=load('cr3-cards',[]),state=null,chosen=new Set(),target=null,modal='',draft={...initial},draftCode=SAMPLE;
-let editorMode='form';
+let editorMode='form',editingCardId=null,editingPublishedId=null;
+function editorDraftKey(){return editingPublishedId?'cr3-editor-draft-published-'+editingPublishedId:editingCardId?'cr3-editor-draft-edit-'+editingCardId:'cr3-editor-draft';}
 let pending=false,showRules=false;let timer=null,lastViewHash='';
 function toast(message,bad=false){const t=$('toast');t.textContent=message;t.className='visible'+(bad?' error':'');clearTimeout(timer);timer=setTimeout(()=>t.className='',3300);}
 const net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
@@ -61,9 +62,9 @@ function lobby(){const room=state;return `<div class="lobby-head"><div><span cla
   ${state.me===state.host?`<div class="row-actions"><button class="subtle" data-action="add-bot">＋ CPUを追加</button><button class="subtle" data-action="remove-bot">− CPUを外す</button></div><button class="primary big" ${state.players.length<2?'disabled':''} data-action="start">対戦開始 ⚔️</button>`:'<p class="hint">👑 部屋主が対戦を開始するのを待っています。</p>'}
   <p class="hint">👑 Firebase対戦ではホストが抜けても残った参加者へ自動引き継ぎします。P2P方式ではホストが抜けると終了します。</p></section>
   <section class="paper"><div class="paper-title"><h2><span>✎</span> みんなの自作カード <small>${state.customCards.length}枚</small></h2><button class="secondary small" data-action="editor">＋ カードを作る</button></div>
-   ${state.customCards.length?`<div class="shared-cards">${state.customCards.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>${e(c.author)} · ${e(TYPE[c.type][0])}</small></div>${c.owner===state.me||state.host===state.me?`<button data-action="remove" data-id="${e(c.id)}" class="small danger">×</button>`:''}</div>`).join('')}</div>`:'<div class="empty"><strong>まだ自作カードはありません</strong><p>作ったカードは全員の山札に混ざります。</p></div>'}
+   ${state.customCards.length?`<div class="shared-cards">${state.customCards.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>${e(c.author)} · ${e(TYPE[c.type][0])}</small></div>${c.owner===state.me?`<button data-action="edit-published" data-id="${e(c.id)}" class="small secondary">✏ 編集</button>`:''}${c.owner===state.me||state.host===state.me?`<button data-action="remove" data-id="${e(c.id)}" class="small danger" title="ロビーから削除">×</button>`:''}</div>`).join('')}</div>`:'<div class="empty"><strong>まだ自作カードはありません</strong><p>作ったカードは全員の山札に混ざります。</p></div>'}
    <h3 class="my-card-heading">保存済みのカード</h3>
-   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="publish" data-id="${e(c.localId)}">追加</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
+   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="edit-saved" data-id="${e(c.localId)}">✏ 編集</button><button class="small secondary" data-action="publish" data-id="${e(c.localId)}">${state.customCards.some(x=>x.owner===state.me&&x.sourceLocalId===c.localId)?'更新':'追加'}</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}" title="端末から削除">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
   </section></div><div class="bottom-bar"><button data-action="leave" class="subtle">← 部屋から退出</button><span>基本カード ${state.baseCardCount}種 + 追加 ${state.customCards.length}種</span></div>`;}
 function battle(){const p=me(),active=amTurn(),def=amDefending(),cards=chosenCards();const inBattle=!!state.pending,attacker=state.players.find(x=>x.id===state.pending?.from),defender=state.players.find(x=>x.id===state.pending?.to);
  const mode=def?`⚠ ${e(attacker?.name||'相手')} から威力${state.pending.damage}の攻撃！ 防御を選ぼう`:active?'あなたの手番！ カードと相手を選んでください':inBattle?`${e(defender?.name||'相手')} が防御を選択中…`:`${e(state.players.find(x=>x.id===state.turn)?.name||'相手')} の手番です`;
@@ -93,12 +94,39 @@ function play(){const cards=chosenCards();if(!cards.length)return;if(amDefending
  if(!amTurn())return;const atk=cards.every(c=>c.type==='attack');chosen.clear();if(atk)act('attack',{cards:cards.map(c=>c.uid),target});
  else if(cards.length===1)act('use',{card:cards[0].uid,target});else toast('攻撃以外は1枚ずつ選んでください',true);}
 const FULL_CARD_TEMPLATE="card.name = \"全手札を断つ巨剣\"\ncard.description = \"相手のすべての手札を調査し、防御札の威力の総和を攻撃に加算する。\"\ncard.type = \"attack\"\ncard.emoji = \"⚔️\"\ncard.power = 100\ncard.cost = 5\ncard.resource = \"mp\"\ncard.effect = \"normal\"\ncard.element = \"dark\"\ncard.weight = 3\n\ndef on_play():\n    bonus = 0\n    for item in target.hand:\n        if item.type == \"defense\":\n            bonus += item.power\n    boost_attack(bonus)\n\ndef on_hit():\n    heal(\"self\", damage_dealt() // 2)";
-function openEditor(){
- const saved=load('cr3-editor-draft',null);
- draft=saved?.data||{...initial,script:''};
- draftCode=saved?.code??(saved?.data?.script||'');
- editorMode=saved?.mode==='code'?'code':'form';
+function openEditor(localId=null,publishedId=null){
+ // Existing cards bypass the unsaved "new card" draft so editing cannot
+ // accidentally overwrite a different card or make an unintended duplicate.
+ let stored=null;
+ editingPublishedId=publishedId;
+ if(publishedId){
+  if(state?.phase!=='lobby')throw Error('公開済みカードはロビーでのみ編集できます');
+  const published=state.customCards.find(c=>c.id===publishedId);
+  if(!published||published.owner!==state.me)throw Error('編集できるのは自分のカードだけです');
+  const bySource=custom.find(c=>c.localId===published.sourceLocalId);
+  const candidate=custom.filter(c=>c.name===published.name&&c.type===published.type&&c.script===published.script&&c.power===published.power&&c.cost===published.cost);
+  stored=published;
+  editingCardId=bySource?.localId||(candidate.length===1?candidate[0].localId:null);
+ }else{
+  stored=localId==null?null:custom.find(c=>c.localId===localId);
+  if(localId!=null&&!stored)throw Error('保存されたカードが見つかりません');
+  editingCardId=stored?.localId||null;
+ }
+ const saved=load(editorDraftKey(),null);
+ draft=CardForge.editable(saved?.data||stored||{...initial,script:''},initial);
+ draftCode=saved?.code??draft.script;
+ editorMode=saved?.mode==='code'||saved?.mode==='form'?saved.mode:(draftCode.trim()?'code':'form');
  modal='editor';renderModal();
+}
+function savedCardsInForge(){
+ return `<details class="forge-saved-library"><summary>📚 保存済みのカード <b>${custom.length}枚</b><span>${editingPublishedId?'公開カードを再編集中':editingCardId?'既存カードを編集中':'タップして再編集'}</span></summary><div class="forge-saved-list">
+  <button class="forge-saved-new" data-action="new-card">＋ 新しいカードを作成</button>
+  ${custom.length?custom.map(c=>`<div class="forge-saved-entry ${editingCardId===c.localId?'current':''}">
+   <span class="forge-saved-emoji">${e(c.emoji||'🃏')}</span>
+   <div><b>${e(c.name||'名前のないカード')}</b><small>${e(TYPE[c.type]?.[0]||'カード')} · ${e(c.cost||0)}${c.resource==='gold'?'G':'MP'} · ${c.script?.trim()?'🐍 コード付き':'🧩 フォーム'}</small></div>
+   <button data-action="edit-saved" data-id="${e(c.localId)}" class="secondary small" ${editingCardId===c.localId?'aria-current="true"':''}>✏ 編集</button>
+  </div>`).join(''):'<p class="forge-saved-empty">まだ保存したカードはありません。</p>'}
+ </div></details>`;
 }
 function codeText(){
  return window.ForgeMonaco?.isMounted()?window.ForgeMonaco.getValue():($('code-input')?.value??draftCode??'');
@@ -109,7 +137,7 @@ function setCodeText(value){
  if(window.ForgeMonaco?.isMounted())window.ForgeMonaco.setValue(draftCode);
  else if(field){field.value=draftCode;field.dispatchEvent(new Event('input',{bubbles:true}));}
  draft.script=draftCode;
- save('cr3-editor-draft',{data:draft,code:draftCode,mode:editorMode});
+ save(editorDraftKey(),{data:draft,code:draftCode,mode:editorMode});
 }
 function getDraft(){
  for(const k of ['name','emoji','description','type','effect','element','resource','cost','power','weight']){
@@ -117,7 +145,7 @@ function getDraft(){
  }
  draft.script=codeText();
  draftCode=draft.script;
- save('cr3-editor-draft',{data:draft,code:draftCode,mode:editorMode});
+ save(editorDraftKey(),{data:draft,code:draftCode,mode:editorMode});
  return draft;
 }
 function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><div class="preview-top"><span>✦ ${TYPE[draft.type][0]}</span><span>${e(ELEMENT[draft.element]||'無')}属性</span></div><div class="preview-emoji">${e(draft.emoji||'✨')}</div><h2>${e(draft.name||'新しいカード')}</h2><p>${e(draft.description||'あなただけのカードを創造しよう。')}</p><div class="preview-bottom"><b>威力 ${Number(draft.power)||0}</b><b>コスト ${Number(draft.cost)||0} ${draft.resource==='gold'?'G':'MP'}</b></div></div>`;}
@@ -127,7 +155,8 @@ function select(id,label,arr,val){return `<label class="forge-field"><span>${lab
 function renderModal(){window.ForgeMonaco?.dispose();const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
  if(modal==='rules'){parent.innerHTML=`<div class="modal-backdrop"><div class="paper modal rules-dialog"><div class="modal-title"><h2>📖 あそびかた</h2><button class="icon-button" data-action="close">×</button></div><p>2〜8人で遊べる、ランダムな手札を使った生き残りカードバトルです。</p><ol><li>手札は最初に9枚。使用した枚数だけランダムに補充されます。</li><li>攻撃カードは1〜3枚同時使用可能。相手は防御カードで防ぎます。</li><li>奇跡・道具・守護神・超常現象を使って逆転を狙いましょう。</li><li>毒や凍結などの状態異常はターン開始時に効果があります。</li><li>最後に生き残った人が勝利です。</li></ol><button class="primary" data-action="close">閉じる</button></div></div>`;return;}
  parent.innerHTML=`<div class="modal-backdrop"><section class="forge-shell" role="dialog" aria-label="カード工房" aria-modal="true">
- <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>自分だけの奇跡をつくろう</small></h2></div><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div>
+ <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>${editingCardId||editingPublishedId?"✏ 保存済みカードを再編集":"自分だけの奇跡をつくろう"}</small></h2></div><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div>
+ ${savedCardsInForge()}
  <div class="forge-modes forge-tabs" role="tablist" aria-label="カードの作成方法"><button role="tab" aria-selected="${editorMode==='form'}" class="${editorMode==='form'?'active':''}" data-action="mode-form">🧩 入力で作成</button><button role="tab" aria-selected="${editorMode==='code'}" class="${editorMode==='code'?'active':''}" data-action="mode-code">🐍 コードで作成</button></div><p class="forge-mode-hint" id="forge-mode-hint">${editorMode==='form'?'フォームで設定した値を保存します。過去のコードが優先されることはありません。':'カードの名前・威力・コスト・効果はコード内の card.* で指定できます。'}</p><div class="forge-layout ${editorMode==='code'?'forge-code-mode':'forge-form-mode'}"><div class="forge-left" id="forge-form-panel" role="tabpanel"><div class="forge-art"><div id="forge-preview">${editorCard()}</div></div><div class="form-block"><h3>カードの基本設定</h3><div class="two-col">${input('name','カード名',draft.name,'text',{maxLength:64})}${input('emoji','アイコン（絵文字）',draft.emoji,'text',{maxLength:16})}</div>
  <div class="two-col">${select('type','カードの種類',Object.entries(TYPE).map(([k,v])=>[k,v[0]]),draft.type)}${select('effect','基本効果',FX[draft.type],draft.effect)}</div>
  <div class="three-col">${input('power','威力（上限なし）',draft.power,'number')}${input('cost','消費MP',draft.cost,'number')}${input('weight','出現頻度',draft.weight,'number')}</div>
@@ -138,14 +167,14 @@ function renderModal(){window.ForgeMonaco?.dispose();const parent=$('modal-root'
  <div class="code-diagnostic" id="code-feedback">✦ 書いたコードは構文チェックの後、実行テストできます。</div><pre id="code-test-output" class="code-diagnostic" aria-live="polite" style="display:none;white-space:pre-wrap;overflow:auto;max-height:220px;font:12px/1.5 monospace"></pre>
  <div class="api-heading">オブジェクト・関数ガイド</div><div class="forge-help-open"><b>📘 card / self / target / players</b><p>card.name, card.type, card.power, card.cost, self.hp, target.mp, target.hand、item.type, item.power などを参照できます。</p><p>for item in target.hand: で全札を走査できます。len(target.hand) は枚数、count_cards(target.hand, "defense") は防御札枚数、sum_power(target.hand, "defense") は防御札の総威力です。</p><p>API一覧：<a href="CARD_API.md" target="_blank" rel="noopener">CARD_API.md</a></p></div><div class="api-heading">使用できる関数 <small>検索してタップすると挿入</small></div><input id="forge-api-search" class="forge-api-search" type="search" autocomplete="off" placeholder="関数を検索：Gold、HP、手札、popup…" aria-label="カード関数を検索"><div class="api-pills" id="forge-api-pills">${Object.entries(PyCards.docs||{}).map(([key,[params,description]])=>`<button data-action="insert" data-search="${e(key+' '+description+' '+params)}" data-code="${e(key+'('+params+')')}" title="${e(description)}"><b>${e(key)}</b><small>${e(description)}</small></button>`).join('')}</div>
  <details class="forge-help"><summary>関数の説明・Pythonの対応範囲</summary><p>コード冒頭の <code>card.name</code> / <code>card.description</code> / <code>card.cost</code> などですべて指定できます。使えるのは <code>def on_play():</code>、<code>on_hit()</code>、<code>on_defend()</code>、<code>on_block()</code>、<code>on_guard()</code>、<code>on_turn_start()</code>。変数、四則演算、<code>if / elif / else</code>、比較、<code>and / or / not</code>、<code>min / max / int / round</code> などが使えます。<code>damage_dealt()</code> は防御やバリア適用後の実ダメージ。<code>damage_taken()</code> は防御時に受けた実ダメージです。<code>target_defense_cards()</code>で相手が持つ防御札の枚数を取得できます。<code>boost_attack(n)</code>は攻撃の合計威力を加算し、<code>on_guard()</code>中の<code>boost_defense(n)</code>は防御値を加算します。攻撃・防御札は手札にある枚数だけ重ねられます。対象は <code>self</code> / <code>target</code> / <code>everyone</code> / <code>all_enemies</code>。カード配列用のforループに対応。import、無制限ループ、ファイル操作は非対応です。</p></details>
- </div></div><div class="forge-footer"><p>スクリプトは安全な命令としてゲーム内で実行されます。無制限のPython実行ではありません。</p><div><button class="secondary" data-action="close">キャンセル</button><button class="primary" data-action="save-card">✓ マイカードに保存</button></div></div>
+ </div></div><div class="forge-footer"><p>スクリプトは安全な命令としてゲーム内で実行されます。無制限のPython実行ではありません。</p><div><button class="secondary" data-action="close">キャンセル</button><button class="primary" data-action="save-card">${editingCardId||editingPublishedId?"✓ 変更を上書き保存":"✓ 新しいカードを保存"}</button></div></div>
  </section></div>`;initCode();}
 function syntaxHighlight(src){return e(src).replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g,'<span class="sy-string">$1</span>').replace(/\b(def|if|elif|else|and|or|not|True|False|None)\b/g,'<span class="sy-keyword">$1</span>').replace(/\b(on_play|on_hit|on_defend|on_block|on_guard|on_turn_start|target_defense_cards|my_defense_cards|incoming_damage|boost_attack|boost_defense|damage_dealt|damage_taken|heal|damage|shield|status|summon|chance|randint|min|max|my_hp|target_hp|resource)\b/g,'<span class="sy-call">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="sy-num">$1</span>');}
 function setEditorMode(mode){
  const layout=document.querySelector('.forge-layout');if(!layout)return;
  if(mode==='code'&&!codeText().trim())setCodeText(CardForge.toCode(draft));
  editorMode=mode;
- save('cr3-editor-draft',{data:draft,code:codeText(),mode});
+ save(editorDraftKey(),{data:draft,code:codeText(),mode});
  layout.classList.toggle('forge-code-mode',mode==='code');layout.classList.toggle('forge-form-mode',mode==='form');
  document.querySelectorAll('.forge-tabs [role="tab"]').forEach(btn=>{
   const active=btn.dataset.action===(mode==='code'?'mode-code':'mode-form');
@@ -254,12 +283,29 @@ function saveCard(){
  catch(err){toast(err.message,true);return;}
  const fields=['name','description','type','emoji','power','cost','resource','element','weight','effect'];
  const savedCard={...payload,...Object.fromEntries(fields.map(k=>[k,normalized[k]]))};
- custom.push({...savedCard,localId:crypto.randomUUID()});save('cr3-cards',custom);
- localStorage.removeItem('cr3-editor-draft');
+ const wasEditing=!!editingCardId||!!editingPublishedId;
+ let result;
+ try{result=CardForge.upsert(custom,savedCard,editingCardId,crypto.randomUUID());}
+ catch(err){toast(err.message,true);return;}
+ custom=result.cards;
+ save('cr3-cards',custom);
+ // A lobby card is copied for the whole room. Apply edits to that same room ID,
+ // but never silently alter an active match or someone else's creation.
+ let sharedUpdated=false;
+ if(state?.phase==='lobby'&&net.ready){
+  const roomCard=state.customCards.find(c=>c.owner===state.me&&(
+    c.id===editingPublishedId||(c.sourceLocalId&&c.sourceLocalId===result.localId)));
+  if(roomCard){
+   act('updateCard',{id:roomCard.id,card:{...savedCard,sourceLocalId:result.localId}});
+   sharedUpdated=true;
+  }
+ }
+ localStorage.removeItem(editorDraftKey());
+ editingCardId=null;editingPublishedId=null;
  modal='';renderModal();render();
- toast('「'+savedCard.name+'」を保存しました！ 対戦部屋から追加できます。');
+ toast('「'+savedCard.name+'」を'+(wasEditing?'上書き保存':'保存')+'しました！'+(sharedUpdated?' ロビーの公開カードへ更新を送信しました。':' ロビーから追加・更新できます。'));
 }
-function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card};delete data.localId;act('publish',{card:data});}
+function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card,sourceLocalId:card.localId};delete data.localId;act('publish',{card:data});}
 function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}$('forge-preview').innerHTML=editorCard();}
 function editCodeInsert(str){
  if(window.ForgeMonaco){window.ForgeMonaco.insert(str);return;}
@@ -283,11 +329,11 @@ document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='ed
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
  switch(a){case 'create':case 'join':joinGame(a);break;case 'invite':copyInvite();break;case 'leave':leave();break;
- case 'editor':openEditor();break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
+ case 'editor':openEditor();break;case 'new-card':if(modal==='editor')getDraft();openEditor();break;case 'edit-saved':if(modal==='editor')getDraft();openEditor(id);break;case 'edit-published':if(modal==='editor')getDraft();openEditor(null,id);break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
  case 'start':act('start');break;case 'reset':act('reset');break;case 'add-bot':act('bot',{action:'add'});break;case 'remove-bot':act('bot',{action:'remove'});break;
  case 'card':selectCard(id);break;case 'target':target=id;render();break;case 'play':play();break;case 'defend':play();break;case 'take-hit':chosen.clear();act('defend',{cards:[]});break;
  case 'pass':act('pass');break;case 'pray':act('pray');break;case 'trade':act('trade',{mode:'heal'});break;
- case 'publish':publishCard(id);break;case 'remove':act('removeCard',{id});break;case 'delete':custom=custom.filter(c=>c.localId!==id);save('cr3-cards',custom);render();break;
+ case 'publish':publishCard(id);break;case 'remove':act('removeCard',{id});break;case 'delete':custom=custom.filter(c=>c.localId!==id);save('cr3-cards',custom);localStorage.removeItem('cr3-editor-draft-edit-'+id);render();break;
  case 'form-to-code':{
  getDraft();
  setCodeText(CardForge.toCode(draft));
