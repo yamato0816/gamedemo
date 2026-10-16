@@ -51,8 +51,19 @@ function panel(){
   :source==='legacy'?'このブラウザに保存されていた中継URLを使用中。サイト共通URLは未設定です。'
   :'Cloudflareにデプロイ後、運営者がrelay-config.jsへ中継URLを登録すると全員が利用できます。';
  dialog.append(option({id:'relay',icon:'☁️',title:'Cloudflare WebSocket',description,notice:detail}));
- dialog.append(option({id:'firebase',icon:'🔥',title:'Firebase Realtime Database',
-  description:'サイトに登録済みのFirebase設定で接続',notice:config()?.firebaseAvailable()?'✓ 共通Firebase設定が利用できます。':'サイト共通のFirebase設定が見つかりません。'}));
+ const firebaseBlock=option({id:'firebase',icon:'🔥',title:'Firebase Realtime Database',
+  description:'サイトに登録済みのFirebase設定で接続',notice:config()?.firebaseAvailable()?'✓ 共通Firebase設定が利用できます。':'サイト共通のFirebase設定が見つかりません。'});
+ if(config()?.firebaseAvailable()){
+  const row=make('label','cr-transport-longpoll');
+  const checkbox=document.createElement('input');
+  checkbox.type='checkbox';checkbox.id='cr-longpoll-switch';
+  checkbox.checked=localStorage.getItem('cr_firebase_longpoll')==='1';
+  row.append(checkbox,make('span','','大学Wi-Fi向け：WebSocketの代わりにLong Pollingを使用する'));
+  const apply=make('button','cr-transport-poll-save','この設定を適用');
+  apply.type='button';apply.dataset.transport='poll';
+  firebaseBlock.append(row,apply);
+ }
+ dialog.append(firebaseBlock);
  dialog.append(option({id:'p2p',icon:'🔗',title:'WebRTC P2P',
   description:'直接通信。大学Wi-Fiでは接続できない場合があります。',
   notice:'自宅Wi-Fi・モバイル回線向け。WebRTCを制限する回線では利用できません。'}));
@@ -69,6 +80,11 @@ document.addEventListener('click',event=>{
  const selected=element.dataset.transport;
  if(selected==='open'){panel();return}
  if(selected==='close'){close();return}
+ if(selected==='poll'){
+  const checked=!!document.getElementById('cr-longpoll-switch')?.checked;
+  localStorage.setItem('cr_firebase_longpoll',checked?'1':'0');
+  location.reload();return;
+ }
  if(!['p2p','relay','firebase'].includes(selected))return;
  try{
   config().choose(selected);
