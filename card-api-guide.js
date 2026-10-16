@@ -58,9 +58,20 @@ const STRING=new Set('format str'.split(' '));
 function ret(name){return EFFECTS.has(name)?'ゲームへの効果（返り値は0）':BOOLEAN.has(name)?'True / False':OBJECT.has(name)?'カードまたはプレイヤー（該当なしならNone）':STRING.has(name)?'文字列':'数値';}
 function example(name){
  if(EXTRA[name])return EXTRA[name][1];
- const params=ENTRIES[name]?.[0]||'';
- return EFFECTS.has(name)?'def on_play():\n    '+name+'('+params+')'
- : 'def on_play():\n    result = '+name+'('+params+')\n    popup("計算結果", "結果 {result}", "📘", "info")';
+ // The short signature hints use labels such as "value" or "array".
+ // Replace them with real expressions so the example is actually runnable.
+ const params=(ENTRIES[name]?.[0]||'')
+  .replace(/\barray\b/g,'target.hand')
+  .replace(/\bhand\b/g,'target.hand')
+  .replace(/\bvalue\b/g,'100')
+  .replace(/\ba\b/g,'5')
+  .replace(/\bb\b/g,'10');
+ const call=name+'('+params+')';
+ if(EFFECTS.has(name))return 'def on_play():\n    '+call;
+ if(OBJECT.has(name))return 'def on_play():\n    picked = '+call+
+  '\n    if picked != None:\n        popup("取得結果", "{picked.name}", "📘", "info")';
+ return 'def on_play():\n    result = '+call+
+  '\n    popup("計算結果", "結果 {result}", "📘", "info")';
 }
 function escape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 let rootEl=null,search='',group='all',view='functions',firstEntry=null;
@@ -186,5 +197,5 @@ if(nav){
  button.title='カード制作の関数・変数・イベントを調べる';
  nav.insertBefore(button,nav.querySelector('.header-cta')||null);
 }
-root.ChaosApiGuide={open,close,groups:GROUPS};
+root.ChaosApiGuide={open,close,groups:GROUPS,example};
 })(typeof window!=='undefined'?window:globalThis);
