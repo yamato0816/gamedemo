@@ -26,5 +26,24 @@ function payload(form,mode,code){
  }else throw Error('カードの作成方法が不明です');
  return raw;
 }
-root.CardForge={FIELDS,toCode,payload};
+// Convert a stored card (including older cards with no editing metadata) back
+// into the user-editable fields. Do not copy host-only IDs or compiled programs.
+function editable(card,defaults={}){
+ const result={...defaults};
+ for(const key of FIELDS)if(card&&card[key]!==undefined)result[key]=card[key];
+ result.script=typeof card?.script==='string'?card.script:'';
+ return result;
+}
+// Preserve the same localId on edits instead of accumulating duplicate cards.
+function upsert(cards,card,id,newId){
+ if(!Array.isArray(cards))throw Error('保存済みカードが壊れています');
+ const list=cards.slice(),idx=id==null?-1:list.findIndex(c=>c.localId===id);
+ if(id!=null&&idx<0)throw Error('編集中のカードが見つかりません。保存し直してください');
+ const localId=id||newId;
+ if(typeof localId!=='string'||!localId)throw Error('カードIDが不正です');
+ const item={...card,localId};
+ if(idx<0)list.push(item);else list[idx]=item;
+ return {cards:list,localId,updated:idx>=0};
+}
+root.CardForge={FIELDS,toCode,payload,editable,upsert};
 })(typeof window!=='undefined'?window:globalThis);
