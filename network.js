@@ -19,8 +19,10 @@ const explainPeerError=err=>{
 class Online{
  constructor({onState,onInfo,onError,onClosed}){
   const invited=(typeof location!=='undefined')?new URLSearchParams(location.search).get('transport'):null;
-  if(invited==='firebase')localStorage.setItem('cr_transport_mode','firebase');
-  const transport=localStorage.getItem('cr_transport_mode');
+  // Invite links can select the same preconfigured network on each device.
+  if(['firebase','relay','p2p'].includes(invited)&&root.ChaosTransport?.available(invited))
+    root.ChaosTransport.choose(invited);
+  const transport=root.ChaosTransport?.mode()||localStorage.getItem('cr_transport_mode')||'p2p';
   if(transport==='firebase'){
    if(typeof FirebaseOnline!=='function')throw Error('Firebase通信ライブラリが見つかりません');
    return new FirebaseOnline({onState,onInfo,onError,onClosed});
