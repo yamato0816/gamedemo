@@ -52,6 +52,49 @@ const EXTRA={
  has_guardian:['指定対象に守護神がいるか、指定種類の守護神がいるかを判定します。','def on_play():\n    if has_guardian("target", "phoenix"):\n        damage("target", 100)'],
  random_enemy:['生存している敵からランダムで1人を読み取ります。','def on_play():\n    enemy = random_enemy()\n    if enemy != None:\n        popup("選ばれた相手", "{enemy.name}", "🎯", "info")']
 };
+// Parameter descriptions supplement the live PyCards.docs signature examples.
+const ARGUMENTS={
+ damage:['対象（self / target / everyone / all_enemies / random_enemy）','与えるダメージ量'],
+ heal:['回復する対象','回復するHP量'],
+ set_hp:['対象','変更後のHP'],
+ shield:['対象','追加するバリア値'],set_shield:['対象','変更後のバリア値'],
+ heal_percent:['対象','現在HPに対する回復率（%）'],
+ resource:['対象','資源の種類：mp / gold','加減する量（マイナス値も可）'],
+ set_resource:['対象','資源：mp / gold','変更後の量'],
+ status:['対象','状態異常名：poison / burn / freeze / curse / weak','継続ターン'],
+ set_status:['対象','状態異常名','変更後の残りターン'],
+ remove_status:['対象','解除したい状態異常名'],
+ cleanse:['対象（すべての状態異常を解除）'],
+ draw:['対象','引く枚数'],draw_type:['対象','カード種類：attack / defense / magic / item / guardian / omen','引く枚数'],
+ duplicate:['対象','複製するカード種類、anyで全種類','複製枚数（最大64）'],
+ discard:['対象','破棄するカード種類、anyで全種類','破棄枚数'],
+ clear_hand:['対象（その手札を全部捨てる）'],shuffle_hand:['対象（カードの並びを変更）'],
+ summon:['召喚する対象','守護神：phoenix / turtle / sprite / storm / muse','継続ターン'],
+ phenomenon:['超常現象名（meteor / blessing / exchange / random など）'],
+ steal:['資源：mp / gold','強奪量（選んだ対象から自分へ）'],
+ give:['受け取る対象','資源：mp / gold','渡す量（所持分が上限）'],
+ swap_stat:['交換する項目：hp / mp / gold / shield'],
+ boost_attack:['追加する攻撃威力'],boost_defense:['追加する防御威力'],
+ multiply_attack:['掛ける倍率'],
+ hand_count:['対象：self または target','省略可能なカード種類（attack / defense など）'],
+ hand_power:['対象：self または target','集計するカード種類（省略可能）'],
+ hand_cost:['対象：self または target','集計するカード種類（省略可能）'],
+ count_cards:['手札配列：self.hand または target.hand','絞り込む種類'],
+ sum_power:['手札配列','絞り込む種類'],
+ card_at:['手札配列','位置（0から始まる番号）'],
+ count_element:['手札配列','属性：fire / water / forest / lightning / dark / none'],
+ count_effect:['手札配列','基本効果の名前'],
+ sum_cost:['手札配列','絞り込む種類'],
+ status_turns:['対象：self または target','状態異常名'],
+ has_status:['対象：self または target','状態異常名'],
+ has_guardian:['対象：self または target','省略可能な守護神名'],
+ popup:['ポップのタイトル。{式}が使えます','ポップ本文。{変数}や{self.hp}が使えます','絵文字（省略すると✨）','テーマ：magic / danger / success / gold / info'],
+ battle_log:['すべてのプレイヤーに見せるメッセージ'],
+ format:['変数埋め込み用の文字列。{self.gold}などで値を展開'],
+ chance:['0から1の確率。例：0.25 は25%'],
+ randint:['乱数の最小値（含む）','乱数の最大値（含む）'],
+ clamp:['元の値','範囲の最小値','範囲の最大値']
+};
 const BOOLEAN=new Set('has_status has_guardian is_alive is_my_turn chance contains'.split(' '));
 const OBJECT=new Set('card_at random_card random_enemy player_at turn_player'.split(' '));
 const STRING=new Set('format str'.split(' '));
@@ -95,6 +138,7 @@ function card(name){
  '<div class="cr-api-entry-body"><p>'+escape(info)+'</p>'+
  '<div class="cr-api-entry-facts"><div><strong>呼び出し方</strong><code>'+escape(name+'('+spec[0]+')')+'</code></div>'+
  '<div><strong>返り値</strong><span>'+escape(ret(name))+'</span></div></div>'+
+ (ARGUMENTS[name]?'<div class="cr-api-arguments"><strong>引数の意味</strong><ol>'+ARGUMENTS[name].map(a=>'<li>'+escape(a)+'</li>').join('')+'</ol></div>':'')+
  '<div class="cr-api-code-head"><strong>使用例</strong><button type="button" data-api-copy="'+escape(name)+'"> <span>⧉</span> コードをコピー</button></div>'+
  '<pre class="cr-api-code"><code>'+escape(demo)+'</code></pre></div></details>';
 }
