@@ -182,7 +182,7 @@ const nav=document.querySelector('.header-right');
 if(nav){
  const button=document.createElement('button');
  button.type='button';button.className='header-link cr-api-launch';
- button.dataset.apiGuide='open';button.textContent='📚 関数図鑑';
+ button.dataset.apiGuide='open';button.innerHTML='<span class="cr-header-icon">📚</span><span class="cr-header-label">関数図鑑</span>';
  button.title='カード制作の関数・変数・イベントを調べる';
  nav.insertBefore(button,nav.querySelector('.header-cta')||null);
 }
