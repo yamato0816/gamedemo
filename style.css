@@ -84,3 +84,33 @@ button.primary,button.secondary,button.subtle,button.small,button.danger{border-
 .forge-code-mode .api-pills button small{font-size:10px;color:#6e7f79;white-space:normal;text-wrap:balance}
 .api-pills button[hidden]{display:none!important}
 @media(max-width:730px){.forge-code-mode .api-pills{max-height:180px}.forge-code-mode .api-pills button{min-width:125px;max-width:47%;flex:1 0 45%}.forge-api-search{font-size:14px}}
+
+
+/* Existing-card gallery inside the forge: available even without joining a room. */
+.forge-saved-library{flex:0 0 auto;border-bottom:1px solid #dce4d7;background:linear-gradient(115deg,#f3f8ed,#fffdf5)}
+.forge-saved-library summary{list-style:none;cursor:pointer;min-height:42px;padding:10px 21px;display:flex;gap:10px;align-items:center;font-size:12px;font-weight:850;color:#42634c;user-select:none}
+.forge-saved-library summary::-webkit-details-marker{display:none}
+.forge-saved-library summary:before{content:'▸';color:#5b8b69;transition:transform .15s}
+.forge-saved-library[open] summary:before{transform:rotate(90deg)}
+.forge-saved-library summary b{font-size:10px;font-variant-numeric:tabular-nums;background:#deebe0;border-radius:20px;padding:2px 8px;color:#30654b}
+.forge-saved-library summary span{margin-left:auto;font-size:10px;font-weight:600;color:#879b83}
+.forge-saved-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px;padding:4px 17px 12px;max-height:min(215px,29dvh);overflow-y:auto;scrollbar-width:thin}
+.forge-saved-entry{display:flex;min-width:0;gap:8px;align-items:center;padding:8px 9px;border:1px solid #dce5d6;border-radius:10px;background:#fff;transition:border-color .2s,background .2s}
+.forge-saved-entry.current{border-color:#76ae82;background:#edfaeb}
+.forge-saved-emoji{font-size:27px;line-height:1;flex:0 0 32px;text-align:center}
+.forge-saved-entry>div{flex:1;min-width:0}
+.forge-saved-entry b,.forge-saved-entry small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.forge-saved-entry b{color:#374639;font-size:11px}
+.forge-saved-entry small{color:#809381;font-size:9px;margin-top:3px}
+.forge-saved-entry button{white-space:nowrap;font-size:11px;padding:6px 9px;min-height:34px}
+.forge-saved-new{border:1px dashed #91b59a;background:#edf7ed;border-radius:9px;color:#346b49;font-size:11px;font-weight:850;cursor:pointer;min-height:46px}
+.forge-saved-new:hover{background:#e2f2e1}
+.forge-saved-empty{font-size:11px;color:#809084;margin:auto 0}
+@media(max-width:730px){
+ .forge-saved-library summary{padding:9px 11px;font-size:11px;min-height:40px}
+ .forge-saved-library summary span{display:none}
+ .forge-saved-list{display:flex;flex-direction:column;max-height:185px;padding:4px 9px 11px;gap:6px}
+ .forge-saved-entry{padding:7px 8px}
+ .forge-saved-entry button{min-height:36px}
+ .shared-card button{min-height:32px}
+}
