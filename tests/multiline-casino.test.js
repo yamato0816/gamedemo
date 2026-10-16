@@ -137,7 +137,7 @@ function play(random,expected){
  a.gold=1000;a.hp=100;a.mp=100;
  b.gold=1000;b.hp=100;b.shield=0;
  // The room setup draws randomly; only the card activation rolls matter.
- dice.splice(0,dice.length,...random);
+ dice.splice(0,dice.length,.4,...random); // crTake() draws a replacement card before on_play()
  E.apply(r,a.id,{type:'use',card:'CASINO',target:b.id});
  const titles=r.customPopups.map(p=>p.title);
  assert.equal(r.scriptFeedback?.ok,true,'runtime must succeed on '+expected.name+': '+JSON.stringify(r.scriptFeedback));
