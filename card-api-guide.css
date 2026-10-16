@@ -74,10 +74,10 @@ body.cr-api-guide-open{overflow:hidden}
  .cr-api-panel{padding:14px}
 }
 @media(max-width:730px){
- .header-right .header-link.cr-api-launch{display:inline-flex!important;align-items:center;font-size:0!important;width:31px;min-width:31px;height:34px;overflow:hidden;justify-content:center;padding:0!important}
- .header-right .header-link.cr-api-launch::first-letter{font-size:18px}
- .header-right .header-link.transport-btn{display:inline-flex!important;align-items:center;font-size:0!important;width:31px;min-width:31px;height:34px;overflow:hidden;justify-content:center;padding:0!important}
- .header-right .header-link.transport-btn::first-letter{font-size:18px}
+ .header-right .header-link.cr-api-launch{display:inline-flex!important;align-items:center;width:32px;min-width:32px;height:34px;overflow:hidden;justify-content:center;padding:0!important}
+ 
+ .header-right .header-link.transport-btn{display:inline-flex!important;align-items:center;width:32px;min-width:32px;height:34px;overflow:hidden;justify-content:center;padding:0!important}
+ 
  .cr-api-overlay{padding:0;align-items:stretch}
  .cr-api-shell{width:100%;height:100dvh;max-height:100dvh;border-radius:0;border:0}
  .cr-api-header{padding:18px 14px 14px}
@@ -100,3 +100,13 @@ body.cr-api-guide-open{overflow:hidden}
  .cr-api-footer button{padding:10px 11px;white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){.cr-api-chevron{transition:none}}
+
+
+/* Visible emoji icons in compact header; text remains available to screen readers. */
+.cr-header-icon{display:inline-flex;justify-content:center;align-items:center;font-size:15px;line-height:1}
+.cr-header-label{display:inline-block;margin-left:4px}
+@media(max-width:730px){
+ .cr-header-icon{font-size:18px}
+ .header-right .header-link.cr-api-launch .cr-header-label,
+ .header-right .header-link.transport-btn .cr-header-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+}
