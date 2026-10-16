@@ -101,7 +101,17 @@ function parseExpression(source,line){
       if(['True','False','None'].includes(a.v))x={k:'literal',v:a.v==='True'?true:a.v==='False'?false:null};
       else if(a.v==='not')x={k:'unary',op:'not',a:expr(3)};
       else if(accept('(')){
-        const args=[];if(!accept(')')){do{args.push(expr());if(args.length>8)fail('引数は8個までです',line);}while(accept(','));expect(')');}
+        // Python-style multiline calls may end with a trailing comma.
+        const args=[];
+        if(!accept(')')){
+          while(true){
+            args.push(expr());
+            if(args.length>8)fail('引数は8個までです',line);
+            if(accept(')'))break;
+            expect(',');
+            if(accept(')'))break;
+          }
+        }
         if(![...READS,...EFFECTS].includes(a.v))fail('許可されていない関数: '+a.v,line);
         x={k:'call',f:a.v,args};
       }else x={k:'var',name:a.v};
@@ -133,12 +143,45 @@ function cleanLine(s){let result='',quoted=null,escape=false;for(const c of s){
 }return result.trimEnd();}
 function compile(code){
   if(typeof code!=='string'||code.length>30000)fail('コードは30000文字以内です');
-  const lines=code.replace(/\r\n?/g,'\n').split('\n').map((raw,index)=>{
+  const physical=code.replace(/\r\n?/g,'\n').split('\n').map((raw,index)=>{
     if(raw.includes('\t'))fail('インデントはスペースを使用してください',index+1);
     const s=cleanLine(raw),indent=(s.match(/^ */)||[''])[0].length;
     return {text:s.trim(),indent,line:index+1};
   }).filter(x=>x.text);
-  if(lines.length>600)fail('コードは600行以内です');
+  if(physical.length>600)fail('コードは600行以内です');
+  // Join physical lines only while () or [] remain open. The block parser sees
+  // the original indentation and line number of the first logical line.
+  const lines=[],open=[];
+  let pending=null;
+  for(const cur of physical){
+    if(pending){
+      // Python normally aligns the final ')' with the opening function call.
+      // Other continued arguments should be indented into the call.
+      if(cur.indent<pending.indent||
+        (cur.indent===pending.indent&&!/^[)\],]+$/.test(cur.text)))
+        fail('複数行の引数は関数の開始行より深くインデントしてください',cur.line);
+      if(cur.line-pending.line>40)fail('1つの式が長すぎます（最大40行）',pending.line);
+      pending.text+=' '+cur.text;
+    }else pending={...cur};
+    let quote='',escaped=false;
+    for(const ch of cur.text){
+      if(quote){
+        if(escaped){escaped=false;continue;}
+        if(ch==='\\'){escaped=true;continue;}
+        if(ch===quote)quote='';
+        continue;
+      }
+      if(ch==='"'||ch==="'"){quote=ch;continue;}
+      if(ch==='('||ch==='['){open.push({char:ch,line:cur.line});continue;}
+      if(ch===')'||ch===']'){
+        const last=open.pop();
+        if(!last||(last.char==='('?ch!==')':ch!==']'))fail('括弧の対応が正しくありません',cur.line);
+      }
+    }
+    if(quote)fail('文字列の引用符が閉じていません',cur.line);
+    if(!open.length){lines.push(pending);pending=null;}
+  }
+  if(pending)fail('括弧が閉じられていません',open[open.length-1]?.line||pending.line);
   let at=0,nodes=0;
   const newNode=()=>{if(++nodes>1200)fail('構文ノードが多すぎます');};
   function block(level){
