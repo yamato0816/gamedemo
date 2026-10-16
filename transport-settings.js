@@ -5,7 +5,7 @@ const header=document.querySelector('.header-right');
 if(header){
  const trigger=document.createElement('button');
  trigger.type='button';trigger.className='header-link transport-btn';
- trigger.textContent='📡 通信';trigger.dataset.transport='open';
+ trigger.innerHTML='<span class="cr-header-icon">📡</span><span class="cr-header-label">通信</span>';trigger.dataset.transport='open';
  trigger.title='通信方式を変更する';header.prepend(trigger);
 }
 const config=()=>root.ChaosTransport;
