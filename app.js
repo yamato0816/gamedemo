@@ -115,7 +115,7 @@ function openEditor(localId=null,publishedId=null){
  const saved=load(editorDraftKey(),null);
  draft=CardForge.editable(saved?.data||stored||{...initial,script:''},initial);
  draftCode=saved?.code??draft.script;
- editorMode=saved?.mode==='code'||saved?.mode==='form'?saved.mode:(draftCode.trim()?'code':'form');
+ editorMode=saved?.mode==='code'||saved?.mode==='form'?saved.mode:((stored&&draftCode.trim())?'code':'form');
  modal='editor';renderModal();
 }
 function savedCardsInForge(){
