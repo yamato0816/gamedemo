@@ -110,3 +110,12 @@ body.cr-api-guide-open{overflow:hidden}
  .header-right .header-link.cr-api-launch .cr-header-label,
  .header-right .header-link.transport-btn .cr-header-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 }
+
+
+/* Keep both help and transport buttons reachable on narrow phones. */
+@media(max-width:480px){
+ .header-right .connect{width:9px;min-width:9px;max-width:9px;gap:0}
+ .header-right .connect>span{display:none}
+ .header-right .header-cta{padding:8px 8px;font-size:10px}
+ .brand{gap:5px}
+}
