@@ -14,7 +14,7 @@ const GROUPS=[
  {id:'combat',icon:'⚔️',label:'攻撃・防御・回復',description:'ダメージ・HP・バリア・攻防倍率',names:'damage heal set_hp shield set_shield heal_percent boost_attack boost_defense multiply_attack'},
  {id:'resources',icon:'💰',label:'資源・状態異常',description:'MP・Gold・状態異常・交換・強奪',names:'resource set_resource status set_status remove_status cleanse steal give swap_stat'},
  {id:'inventory',icon:'🎴',label:'手札・召喚・現象',description:'ドロー・複製・破棄・守護神・超常現象',names:'draw draw_type duplicate discard clear_hand shuffle_hand swap_hands summon phenomenon'},
- {id:'visual',icon:'🎬',label:'演出・お知らせ',description:'変数付きポップ・戦闘ログ',names:'popup battle_log'}
+ {id:'visual',icon:'🎬',label:'演出・お知らせ',description:'更新できるポップ・虹色グラデーション・戦闘ログ',names:'popup popup_update popup_wait battle_log'}
 ].map(group=>({...group,names:group.names.split(' ')}));
 const EXTRA={
  damage:['対象のHPをダメージで減らします。通常のバリアやダメージ軽減の影響を受けます。','def on_play():\n    damage("target", 100)'],
@@ -44,7 +44,9 @@ const EXTRA={
  boost_defense:['防御判定時の防御値を追加します。防御カードでは on_guard が基本です。','def on_guard():\n    boost_defense(incoming_damage() // 2)'],
  damage_dealt:['防御後、実際に与えたHPダメージです。on_hitで使うと便利です。','def on_hit():\n    heal("self", damage_dealt() // 2)'],
  incoming_damage:['防御しようとしている攻撃の防御前威力です。','def on_guard():\n    boost_defense(incoming_damage())'],
- popup:['全プレイヤーに色付きアニメーションを表示します。タイトルや文章中の {変数} や {式} は実行時の値に置換されます。テーマは magic/danger/success/gold/info。','def on_play():\n    bonus = hand_count("target", "defense") * 100\n    popup("盾狩り！", "盾 {hand_count(\'target\', \'defense\')} 枚 / 威力 +{bonus}", "⚡", "danger")\n    boost_attack(bonus)'],
+ popup:['全員に同期するポップを開始します。5番目の引数は表示時間ms。演出中はカード操作・CPU・ターン時間を待機させます。テーマは magic/danger/success/gold/info/rainbow/aurora/sunset/neon。','def on_play():\n    popup("CR開幕", "図柄変動中…", "🎰", "neon", 900)\n    popup_update("激アツ！", "777を狙え！", "🔥", "sunset", 1300)\n    popup_update("🌈 大当たり！", "獲得 {self.gold}G", "🌈", "rainbow", 2500)'],
+ popup_update:['現在のポップを閉じずに、タイトル・本文・絵文字・テーマをその場で切り替えます。テンプレート中の {a} などの変数・式は更新指示の時点で確定します。','def on_play():\n    a = randint(0,9)\n    popup("左停止", "？？？", "🎰", "info", 800)\n    popup_update("最終停止", "【{a}】【{a}】【{a}】", "🌈", "rainbow", 2200)'],
+ popup_wait:['同じポップの現在の画面を追加で表示するミリ秒数。最後の更新のあとに使うとその演出を長めに保持できます。','def on_play():\n    popup("リーチ！", "あと1つ…", "⚡", "sunset", 1100)\n    popup_wait(700)\n    popup_update("結果発表", "777！", "🌈", "rainbow", 2200)'],
  battle_log:['全員の戦闘ログに任意の文章を追加します。変数の埋め込みにも対応しています。','def on_play():\n    battle_log("{self.name} がカードを発動！ 残りHP {self.hp}")'],
  format:['値を埋め込んだ文字列を返します。ポップ以外の文章生成に使用できます。','def on_play():\n    msg = format("敵HP: {target.hp}")\n    popup("観測完了", msg, "🔎", "info")'],
  summon:['自分または対象に指定した守護神を指定ターン数召喚します。','def on_play():\n    summon("self", "phoenix", 4)'],
@@ -88,7 +90,9 @@ const ARGUMENTS={
  status_turns:['対象：self または target','状態異常名'],
  has_status:['対象：self または target','状態異常名'],
  has_guardian:['対象：self または target','省略可能な守護神名'],
- popup:['ポップのタイトル。{式}が使えます','ポップ本文。{変数}や{self.hp}が使えます','絵文字（省略すると✨）','テーマ：magic / danger / success / gold / info'],
+ popup:['ポップのタイトル。{式}が使えます','ポップ本文。{変数}や{self.hp}が使えます','絵文字（省略すると✨）','色：magic / danger / success / gold / info / rainbow / aurora / sunset / neon','最初の画面の表示時間（ms、350〜5000）'],
+ popup_update:['更新後のタイトル（{式}対応）','更新後の本文（{式}対応）','新しい絵文字','グラデーションを含む色の種類','更新した画面の表示時間（ms）'],
+ popup_wait:['直前の画面を延ばす時間（0〜3000ms）。合計24秒まで'],
  battle_log:['すべてのプレイヤーに見せるメッセージ'],
  format:['変数埋め込み用の文字列。{self.gold}などで値を展開'],
  chance:['0から1の確率。例：0.25 は25%'],
@@ -177,7 +181,9 @@ function quickstart(){
  ['self','target','everyone','all_enemies','random_enemy'].map(t=>'<code>'+t+'</code>').join('')+'</div>'+
  '<p>関数の対象には、上記を文字列で指定します。<code>damage("target", 100)</code> は対象にダメージを与えます。</p>'+
  '<h4>ポップに計算結果を表示</h4><pre class="cr-api-code"><code>'+escape('def on_play():\n    bonus = alive_count() * 100\n    resource("self", "gold", bonus)\n    popup("賞金ゲット！", "生存人数 × 100 = {bonus} Gold / 今は {self.gold}G", "💰", "gold")')+'</code></pre>'+
- '<p>ポップ色は <code>magic</code>（紫）、<code>danger</code>（赤）、<code>success</code>（緑）、<code>gold</code>（金）、<code>info</code>（青）。<code>{bonus}</code>、<code>{target.hp}</code> のような変数や式は実行時に置換されます。</p>'+
+ '<p>ポップ色は <code>magic</code>（紫）、<code>danger</code>（赤）、<code>success</code>（緑）、<code>gold</code>（金）、<code>info</code>（青）、<code>rainbow</code>（虹）、<code>aurora</code>（オーロラ）、<code>sunset</code>（夕焼け）、<code>neon</code>（ネオン）。<code>{bonus}</code> や <code>{target.hp}</code> は実行時に置換されます。</p>'+
+ '<h4>動的な演出・busy制御</h4><pre class="cr-api-code"><code>'+escape('def on_play():\n    a = randint(0, 9)\n    popup("図柄変動", "？？？", "🎰", "neon", 900)\n    popup_update("左停止", "【{a}】？？", "⚡", "sunset", 1000)\n    popup_wait(600)\n    popup_update("結果", "【{a}】【{a}】【{a}】", "🌈", "rainbow", 2000)')+'</code></pre>'+
+ '<p>ポップが終わるまでゲーム操作と次のターンが待機します。効果の数値計算自体は発動時に一括実行されます。1演出は最大12段階、演出による待機は最大24秒です。</p>'+
  '<h4>書き方の注意</h4><p>インデントはスペース4個、イベントは <code>def on_play():</code> のように書きます。使用できるのはゲームのAPIだけで、一般Pythonの <code>import</code> や外部ファイル操作には対応していません。</p></div>';
 }
 function eventPage(){
