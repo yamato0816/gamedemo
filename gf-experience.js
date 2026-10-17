@@ -118,7 +118,7 @@ render=function(){
  }
  originalRender();gfEffect();
  // Every client receives the same bounded, host-computed popup events.
- window.ChaosPopups?.ingest(state?.room||'',state?.phase||'',state?.customPopups||[]);
+ window.ChaosPopups?.ingest(state?.room||'',state?.phase||'',state?.customPopups||[],state?.popupBusyUntil||0);
  if(changed.length&&document.querySelector('.gf-compact-field')){
    document.getElementById('gf-impact-feed')?.remove();
    const feed=document.createElement('div');feed.id='gf-impact-feed';feed.className='gf-impact-feed';
