@@ -241,7 +241,7 @@ function testCardCode(){
     swap_stat:k=>{const temp=self[k];self[k]=target[k];target[k]=temp;notes.push('🔄 '+k+'を交換');},
     shuffle_hand:w=>{change(w,p=>p.hand.reverse());notes.push('🎲 '+w+'の手札をシャッフル');},
     popup:(title,message,icon,theme,duration)=>{notes.push('🎬 ポップ ['+theme+'] '+title+' / '+message);demoPopups.push([{title,detail:message,icon,theme,duration}]);},
-    popup_update:(title,message,icon,theme,duration)=>{if(!demoPopups.length)throw Error('popup_updateの前にpopupが必要です');notes.push('🎞 更新 ['+theme+'] '+title+' / '+message);demoPopups[demoPopups.length-1].push({title,detail:message,icon,theme,duration});},
+    popup_update:(title,message,icon,theme,duration)=>{if(!demoPopups.length)throw Error('popup_updateの前にpopupが必要です');const frames=demoPopups[demoPopups.length-1],prev=frames[frames.length-1];const step={title:title===null?prev.title:title,detail:message===null?prev.detail:message,icon:icon===null?prev.icon:icon,theme:theme===null?prev.theme:theme,duration};notes.push('🎞 更新 ['+step.theme+'] '+step.title+' / '+step.detail);frames.push(step);},
     popup_wait:duration=>{if(!demoPopups.length)throw Error('popup_waitの前にpopupが必要です');const frames=demoPopups[demoPopups.length-1],last=frames[frames.length-1];last.duration+=duration;notes.push('⏳ 現在のポップを '+duration+'ms延長');},
     battle_log:message=>notes.push('📜 '+message),
     heal:(w,n)=>{change(w,p=>{p.hp+=n;});notes.push('💚 '+w+'を '+n+'回復');},
