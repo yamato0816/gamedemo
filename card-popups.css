@@ -19,3 +19,74 @@
 @keyframes cr-pop-icon{to{transform:translateY(-6px) scale(1.06)}}
 @media(max-width:730px){.cr-custom-popups{top:70px;width:calc(100vw - 20px)}.cr-popup-card{padding:13px 12px 13px 18px;gap:8px;border-radius:12px;max-height:32dvh}.cr-popup-icon{width:48px;flex-basis:48px;height:60px;font-size:34px}.cr-popup-label{font-size:8px}.cr-popup-title{font-size:19px}.cr-popup-detail{font-size:12px;max-height:11dvh}}
 @media(prefers-reduced-motion:reduce){.cr-popup-card,.cr-popup-out,.cr-popup-icon{animation:none!important}}
+
+
+/* 2026-10-17: staged jackpot choreography, customizable animated gradients.
+   z-index 855 blocks input; the popup card is at 860 above that shield. */
+.cr-popup-busy{position:fixed;inset:0;z-index:855;background:rgba(12,15,23,.25);
+  pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 12px max(18px,env(safe-area-inset-bottom));backdrop-filter:blur(2px)}
+.cr-popup-busy-label{background:#142720e8;color:#edffe7;padding:11px 18px;border-radius:999px;
+  border:1px solid #a0cbaa76;font:700 12px/1.5 'Noto Sans JP',system-ui,sans-serif;
+  box-shadow:0 8px 30px #0007;letter-spacing:.02em}
+.cr-popup-rainbow{
+ --cr-pop-accent:#ffe28f;--cr-pop-bg:#421b62;
+ background:linear-gradient(120deg,#f33976,#de47ef,#703ff5,#28b5eb,#2ddca8,#ffdf64,#fc684f,#f33976);
+ background-size:350% 350%;color:#fffef5;
+ animation:cr-pop-enter .48s cubic-bezier(.19,1.48,.31,1) both,cr-pop-gradient-spin 3.5s linear infinite;
+ box-shadow:0 0 35px #f14ebc80,0 25px 90px #0009,inset 0 2px #fff8
+}
+.cr-popup-aurora{
+ --cr-pop-accent:#c3fcec;--cr-pop-bg:#123b50;
+ background:linear-gradient(115deg,#062b40,#075a70,#13986f,#8b5ace,#065067,#062b40);
+ background-size:280% 280%;
+ animation:cr-pop-enter .48s cubic-bezier(.19,1.48,.31,1) both,cr-pop-gradient-spin 5s ease-in-out infinite;
+ box-shadow:0 0 35px #32ffc562,0 25px 80px #0008
+}
+.cr-popup-sunset{
+ --cr-pop-accent:#ffe0a4;--cr-pop-bg:#762c56;
+ background:linear-gradient(120deg,#7c235d,#be3169,#f27342,#fac156,#a53879,#7c235d);
+ background-size:300% 300%;
+ animation:cr-pop-enter .48s cubic-bezier(.19,1.48,.31,1) both,cr-pop-gradient-spin 4s ease-in-out infinite;
+ box-shadow:0 0 32px #ff86536a,0 25px 80px #0009
+}
+.cr-popup-neon{
+ --cr-pop-accent:#7afffa;--cr-pop-bg:#141b37;
+ background:linear-gradient(128deg,#13152c,#49205e,#1b537a,#20384d,#13152c);
+ background-size:280% 280%;
+ animation:cr-pop-enter .48s cubic-bezier(.19,1.48,.31,1) both,cr-pop-gradient-spin 3.8s linear infinite,cr-pop-neon-glow 1.2s ease-in-out infinite alternate;
+ box-shadow:0 0 26px #28faff73,0 25px 80px #000a
+}
+.cr-popup-rainbow .cr-popup-title,.cr-popup-neon .cr-popup-title{
+ text-shadow:0 2px 0 #0009,0 0 18px #fff7
+}
+.cr-popup-rainbow .cr-popup-edge,.cr-popup-aurora .cr-popup-edge,
+.cr-popup-sunset .cr-popup-edge,.cr-popup-neon .cr-popup-edge{
+ background:linear-gradient(180deg,#fff,#fdc76c,#ff68e1,#57fce6,#fff);
+ background-size:100% 250%;animation:cr-pop-gradient-edge 1.7s linear infinite;
+ box-shadow:0 0 14px #fff9
+}
+.cr-popup-out,.cr-popup-rainbow.cr-popup-out,.cr-popup-aurora.cr-popup-out,
+.cr-popup-sunset.cr-popup-out,.cr-popup-neon.cr-popup-out{
+ animation:cr-pop-leave .35s ease-in both
+}
+@keyframes cr-pop-gradient-spin{
+ 0%{background-position:0% 35%}50%{background-position:100% 70%}100%{background-position:0% 35%}
+}
+@keyframes cr-pop-gradient-edge{
+ from{background-position:0% 0%}to{background-position:0% 250%}
+}
+@keyframes cr-pop-neon-glow{
+ from{filter:drop-shadow(0 0 1px #2effff5e)}to{filter:drop-shadow(0 0 15px #f56ffa99)}
+}
+@keyframes cr-pop-stage-in{
+ from{opacity:.12;transform:translateY(11px) scale(.94);filter:blur(3px)}
+ to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+}
+@media(prefers-reduced-motion:reduce){
+ .cr-popup-rainbow,.cr-popup-aurora,.cr-popup-sunset,.cr-popup-neon,
+ .cr-popup-rainbow .cr-popup-edge,.cr-popup-aurora .cr-popup-edge,
+ .cr-popup-sunset .cr-popup-edge,.cr-popup-neon .cr-popup-edge,
+ .cr-popup-title,.cr-popup-detail{animation:none!important;transition:none!important}
+ .cr-popup-busy{backdrop-filter:none}
+}
