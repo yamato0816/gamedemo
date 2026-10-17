@@ -114,6 +114,23 @@ now+=10000;
 now+=10000;
 {
  const {r,actor,other}=room();
+ const partial='card.name="一部だけ更新"\\ncard.type="item"\\ncard.effect="normal"\\ndef on_play():\\n    popup("変動中","残り？？","🎰","neon",400)\\n    popup_update("結果発表")\\n    popup_wait(3000)';
+ // Construct an actual multi-line DSL program with escaped source newlines.
+ const code=partial.replace(/\\n/g,'\n');
+ actor.hand=[{...E.card({script:code},'作者'),uid:'PARTIAL'}];
+ E.apply(r,actor.id,{type:'use',card:'PARTIAL',target:other.id});
+ const frames=r.customPopups[0].stages;
+ assert.equal(frames.length,2);
+ assert.equal(frames[1].title,'結果発表');
+ assert.equal(frames[1].detail,'残り？？','omitted content preserved');
+ assert.equal(frames[1].icon,'🎰','omitted icon preserved');
+ assert.equal(frames[1].theme,'neon','omitted animation theme preserved');
+ assert.equal(frames[1].duration,4300,'popup_wait extends past 5000-ms visual frame defaults');
+ assert.equal(r.customPopups[0].durationMs,4700);
+}
+now+=10000;
+{
+ const {r,actor,other}=room();
  const invalid='card.name="無効な演出"\ncard.type="item"\ncard.effect="normal"\ndef on_play():\n    popup_update("oops","before first popup","💀","danger")';
  actor.hand=[{...E.card({script:invalid},'作者'),uid:'BAD'}];
  E.apply(r,actor.id,{type:'use',card:'BAD',target:other.id});
