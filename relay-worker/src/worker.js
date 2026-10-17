@@ -30,7 +30,9 @@ export class RoomRelay{
   return new Response(null,{status:101,webSocket:client});
  }
  webSocketMessage(ws,message){
-  if(typeof message!=='string'||message.length>65000){ws.close(1009,'Message too large');return;}
+  // A state can include a bounded set of staged popup frames and custom card scripts.
+  // Match the client action limit rather than closing the WebSocket at 65k chars.
+  if(typeof message!=='string'||message.length>262144){ws.close(1009,'Message too large');return;}
   let msg;try{msg=JSON.parse(message)}catch{return}if(!msg||typeof msg!=='object'||Array.isArray(msg))return;
   const caller=ws.deserializeAttachment();if(!caller)return;
   if(caller.role==='host'){
