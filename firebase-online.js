@@ -127,7 +127,7 @@ class FirebaseOnline{
    this.clock=setInterval(()=>{
     if(!this.room||!this.ready||!this.isHost)return;
     try{
-     const before=JSON.stringify({phase:this.room.phase,turn:this.room.turnIndex,round:this.room.round,pending:this.room.pending,players:this.room.players.map(p=>[p.hp,p.mp,p.gold,p.status,p.guardian])});
+     const before=JSON.stringify({phase:this.room.phase,turn:this.room.turnIndex,round:this.room.round,pending:this.room.pending,popupBusyUntil:this.room.popupBusyUntil,popupDeferredNext:this.room.popupDeferredNext,players:this.room.players.map(p=>[p.hp,p.mp,p.gold,p.status,p.guardian])});
      GameEngine.settle(this.room);
      const after=JSON.stringify({phase:this.room.phase,turn:this.room.turnIndex,round:this.room.round,pending:this.room.pending,players:this.room.players.map(p=>[p.hp,p.mp,p.gold,p.status,p.guardian])});
      if(before!==after||(++this.tick%10===0))this._broadcast();
