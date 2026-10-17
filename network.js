@@ -41,7 +41,7 @@ class Online{
   try{this.peer=this._makePeer(PREFIX+this.code.toLowerCase());}catch(e){clearTimeout(wait);reject(e);return;}
   this.peer.on('open',id=>{
    this.ready=true;this.room=GameEngine.create(this.code,id,this.name);this.onInfo('P2P ホスト接続中');this._broadcast();
-   this.clock=setInterval(()=>{if(!this.room)return;const snap=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});GameEngine.settle(this.room);const snap2=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});if(snap!==snap2||(++this.heartbeat%5===0))this._broadcast();},950);
+   this.clock=setInterval(()=>{if(!this.room)return;const snap=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,popupBusyUntil:this.room.popupBusyUntil,popupDeferredNext:this.room.popupDeferredNext,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});GameEngine.settle(this.room);const snap2=JSON.stringify({round:this.room.round,phase:this.room.phase,turn:this.room.turnIndex,pending:this.room.pending,deadline:this.room.deadline,log:this.room.log,players:this.room.players.map(p=>[p.hp,p.status,p.mp,p.gold,p.guardian])});if(snap!==snap2||(++this.heartbeat%5===0))this._broadcast();},950);
    settled=true;clearTimeout(wait);resolve(this.code);
   });
   this.peer.on('connection',conn=>this._accept(conn));
