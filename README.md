@@ -363,3 +363,6 @@ def on_play():
 制約：カード効果（ダメージ・Gold変更など）の数値処理は**カード発動時に同期的に確定**します。busyが待たせるのは**次の操作・CPU・ターン進行・タイムアウト**です。カード効果の数値計算まで段階別に遅延実行する機能ではありません。
 
 関数の詳細・コピー用のカードコードは [CARD_API.md](./CARD_API.md) を参照。検証は `node tests/popup-busy-timeline.test.js` と `node tests/popup-stages-ui.test.js`、従来の `tests/card-popup-ui.test.js` を使用します。
+
+
+**Cloudflare中継の運用注意（再デプロイが必要）**：段階演出による対戦データが増えても不必要に接続を閉じないよう、[relay-worker/src/worker.js](./relay-worker/src/worker.js) の受信サイズ制限を旧65,000文字から262,144文字へ拡張しました。GitHub Pagesだけ更新してもCloudflare Worker側には反映されません。中継を利用中なら、開発PCの `relay-worker` フォルダで `npx wrangler deploy` を再実行してください。新しい中継経路の検証は `node tests/relay-worker-large-popups.test.mjs` です。
