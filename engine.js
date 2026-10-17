@@ -202,9 +202,26 @@ function crPhenomenon(r,key){
   const specialIcon={blessing:'✨',meteor:'☄️',exchange:'🌀',silence:'🤫',fog:'🌫️',mana_rain:'💧',earthquake:'🌋'}[key]||'🌌';
   crVisual(r,'omen','超常現象！','「'+label+'」が発生！ 全員に影響します',specialIcon,key);
 }
+// Authoritative, bounded animation gate. Card effects resolve atomically, but
+// the next player action, turn change, timeout and bot processing wait for the
+// full scheduled popup timeline. The deadline is wall-clock based so a missing
+// client acknowledgement can never permanently freeze an online room.
+const CR_POPUP_MAX_BUSY=24000;
+const crPopupRemaining=r=>Math.max(0,(Number(r.popupBusyUntil)||0)-Date.now());
+const crPopupBusy=r=>r.phase==='game'&&crPopupRemaining(r)>0;
+function crPopupHold(r,requested){
+  const now=Date.now(),base=Math.max(now,Number(r.popupBusyUntil)||now);
+  const allowed=Math.max(0,CR_POPUP_MAX_BUSY-(base-now));
+  const duration=Math.min(allowed,Math.max(0,Math.floor(Number(requested)||0)));
+  if(!duration)return 0;
+  r.popupBusyUntil=base+duration;
+  if(r.deadline>now)r.deadline+=duration;
+  return duration;
+}
+const crPopupDeadline=(r,ms)=>Math.max(Date.now(),Number(r.popupBusyUntil)||0)+ms;
 function crRules(r,card,event,ctx){
   if(!card.script)return;
-  let popupBudget=0;
+  let popupBudget=0,lastPopup=null;
   const applyHp=(p,value)=>{
     if(!crLive(p))return;
     const next=crSafeDamage(value),old=p.hp;
@@ -262,15 +279,36 @@ function crRules(r,card,event,ctx){
       for(let i=p.hand.length-1;i>0;i--){const j=crRand(i+1);[p.hand[i],p.hand[j]]=[p.hand[j],p.hand[i]];}
       crLog(r,'🎲 '+p.name+' の手札をシャッフルした');
     }),
-    popup:(title,detail,icon,theme)=>{
+    popup:(title,detail,icon,theme,duration)=>{
       if(++popupBudget>6)return;
+      const length=crPopupHold(r,duration);
+      if(!length)return;
       r.customPopupSeq=(r.customPopupSeq||0)+1;
       r.customPopups=r.customPopups||[];
-      const evt={seq:r.customPopupSeq,title:crText(title,70),detail:crDescription(detail).slice(0,420),
-        icon:crText(icon||'✨',12),theme,card:crText(card.name,64),at:Date.now()};
+      const frame={title:crText(title,70),detail:crDescription(detail).slice(0,420),
+        icon:crText(icon||'✨',12),theme,duration:length};
+      const evt={seq:r.customPopupSeq,...frame,card:crText(card.name,64),
+        at:Date.now(),durationMs:length,stages:[frame]};
       r.customPopups.push(evt);
       if(r.customPopups.length>12)r.customPopups.splice(0,r.customPopups.length-12);
+      lastPopup=evt;
       crLog(r,'📣 '+evt.card+'：'+evt.title);
+    },
+    popup_update:(title,detail,icon,theme,duration)=>{
+      if(!lastPopup)throw Error('popup_update() の前に popup() を呼んでください');
+      if(lastPopup.stages.length>=12)return;
+      const length=crPopupHold(r,duration);
+      if(!length)return;
+      lastPopup.stages.push({title:crText(title,70),detail:crDescription(detail).slice(0,420),
+        icon:crText(icon||'✨',12),theme,duration:length});
+      lastPopup.durationMs+=length;
+    },
+    popup_wait:ms=>{
+      if(!lastPopup)throw Error('popup_wait() の前に popup() を呼んでください');
+      const length=crPopupHold(r,ms);
+      if(!length)return;
+      lastPopup.stages[lastPopup.stages.length-1].duration+=length;
+      lastPopup.durationMs+=length;
     },
     battle_log:message=>crLog(r,'📜 '+crText(message,240)),
     status:(who,k,n)=>crRecipients(r,who,ctx).forEach(p=>crStatus(r,p,k,n)),
@@ -309,6 +347,7 @@ function crRules(r,card,event,ctx){
 function crWinner(r){
   if(r.phase!=='game')return true;
   const living=crLiving(r);if(living.length>1)return false;
+  if(crPopupBusy(r)){r.popupDeferredWinner=true;return true;}
   r.phase='finished';r.pending=null;r.deadline=0;r.winner=living.length?living[0].id:null;
   crVisual(r,'victory',living.length?'優勝！':'全滅！',living.length?living[0].name+' が最後まで生き残った！':'生存者はいません','🏆');
   crLog(r,living.length?`🏆 ${living[0].name} の優勝！`:'🤝 全滅、引き分け！');return true;
@@ -331,10 +370,12 @@ function crStartTurn(r){
   if(p.status.freeze){p.status.freeze--;crLog(r,`🧊 ${p.name} は凍結で行動不能！`);crNext(r);return;}
   p.shopUsed=false;p.mp=crAdd(p.mp,3);crLog(r,'💠 '+p.name+' MPが3回復！');
   crDraw(r,p,Math.max(0,9-p.hand.length));crLog(r,`🎯 ${p.name} のターン`);
-  r.deadline=Date.now()+60000;
+  r.deadline=crPopupDeadline(r,60000);
 }
 function crNext(r){
-  if(crWinner(r))return;r.pending=null;
+  if(crWinner(r))return;
+  if(crPopupBusy(r)){r.popupDeferredNext=true;return;}
+  r.pending=null;
   for(let i=0;i<r.players.length;i++){
     r.turnIndex=(r.turnIndex+1)%r.players.length;
     if(r.turnIndex===0){
@@ -366,7 +407,7 @@ function crAttack(r,from,to,cards){
   }
   if(crWinner(r))r.pending=null;
   else if(!crLive(to)){r.pending=null;crNext(r);}
-  else r.deadline=Date.now()+30000;
+  else r.deadline=crPopupDeadline(r,30000);
 }
 // Retaliation is a fresh attack window. The victim may defend again.
 const CR_REACTION_DEPTH=6,CR_REACTION_QUEUE=48;
@@ -383,7 +424,7 @@ function crContinueReaction(r){
     if(!to||!crLive(to)||!from)continue;
     r.pending={from:from.id,to:to.id,damage:x.damage,element:'none',pierce:0,effects:[],kind:'reaction',reactionDepth:x.depth,
       cards:[{name:x.name,emoji:x.emoji,type:'attack',power:x.damage,effect:'normal'}]};
-    r.deadline=Date.now()+30000;
+    r.deadline=crPopupDeadline(r,30000);
     crLog(r,'🔁 '+from.name+' → '+to.name+'｜'+x.name+' 威力'+x.damage+'！ 再び防御可能');
     crVisual(r,'attack','反撃が来た！',from.name+' → '+to.name+' / '+x.name+' / 威力'+x.damage,x.emoji||'⚡');
     return true;
@@ -486,7 +527,7 @@ function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shi
   status:{poison:0,burn:0,freeze:0,curse:0,weak:0},guardian:null,hand:[]};}
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
   turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:(r.pending.cards||[]).map(c=>({name:c.name,emoji:c.emoji,type:c.type,power:c.power}))}:null,
-  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,customPopups:r.customPopups||[],
+  winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,customPopups:r.customPopups||[],popupBusyUntil:crPopupBusy(r)?r.popupBusyUntil:0,
   players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
   me:p.id,hand:p.hand,cards:r.cards,customCards:r.cards,log:r.log.slice(0,14),baseCardCount:CR_BASE.length};}
@@ -516,8 +557,23 @@ function crBot(r){
   return true;
 }
 function crSettle(r){
-  // No timers can run while Apps Script is idle. The next poll processes expirations.
+  if(r.phase!=='game')return;
+  if(crPopupBusy(r))return;
+  // Release the wall-clock gate even if a participant closed the tab mid-animation.
+  if(r.popupBusyUntil){
+    r.popupBusyUntil=0;
+    if(r.popupDeferredWinner){
+      r.popupDeferredWinner=false;
+      if(crWinner(r))return;
+    }
+    if(r.popupDeferredNext){
+      r.popupDeferredNext=false;
+      crNext(r);
+      if(r.phase!=='game'||crPopupBusy(r))return;
+    }
+  }
   for(let i=0;i<20&&r.phase==='game';i++){
+    if(crPopupBusy(r))break;
     if(r.pending&&r.deadline<=Date.now()){
       const defender=r.players.find(x=>x.id===r.pending.to);crLog(r,'⏰ 防御時間切れ');crDefend(r,defender,[]);continue;
     }
@@ -556,8 +612,9 @@ function crShop(r,p,item,targetId){
   crVisual(r,'shop','購入！',p.name+'｜'+offer.name+' ¥'+offer.cost,offer.icon,item);
 }
 function crNewRoom(code,token,name){return {code,phase:'lobby',players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
-  turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],customPopups:[],customPopupSeq:0,created:Date.now(),updated:Date.now()};}
+  turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],customPopups:[],customPopupSeq:0,popupBusyUntil:0,popupDeferredNext:false,popupDeferredWinner:false,created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
+  if(crPopupBusy(r)&&msg.type!=='leave')throw Error('演出中です。ポップが終わるまで操作をお待ちください');
   if(msg.type==='publish'){
     if(JSON.stringify(msg.card||{}).length>131072)throw Error('カードJSONは128KiB以内にしてください');
     if(r.phase!=='lobby')throw Error('対戦前に追加・更新してください');
@@ -600,7 +657,7 @@ function crApply(r,msg,p){
     }
   }else if(msg.type==='start'){
     if(p.id!==r.host||!['lobby','finished'].includes(r.phase)||r.players.length<2)throw Error('開始できません（2人以上必要）');
-    r.phase='game';r.pending=null;r.reactionQueue=[];r.customPopups=[];r.customPopupSeq=0;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
+    r.phase='game';r.pending=null;r.reactionQueue=[];r.customPopups=[];r.customPopupSeq=0;r.popupBusyUntil=0;r.popupDeferredNext=false;r.popupDeferredWinner=false;r.winner=null;r.round=1;r.phenomenon=null;r.visualSeq=0;r.visualEvent=null;r.eliminationSeq=0;r.lastElimination=null;r.scriptSeq=0;r.scriptFeedback=null;r.log=[];
     for(let i=r.players.length-1;i>0;i--){const j=crRand(i+1);[r.players[i],r.players[j]]=[r.players[j],r.players[i]];}
     r.turnIndex=0;
     r.players.forEach(x=>{Object.assign(x,crPlayer(x.id,x.name,x.bot));crDraw(r,x,9);});
