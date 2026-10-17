@@ -127,9 +127,14 @@ function ingest(roomId,gamePhase,events,busyUntil=0){
  }
  syncBusyUntil(busyUntil);
 }
-function preview(title,detail,icon='✨',theme='magic',duration=1900){
- enqueue({title:String(title),detail:String(detail),icon:String(icon),theme,
-  card:'工房プレビュー',stages:[{title,detail,icon,theme,duration}],at:Date.now()});
+function previewSequence(stages,card='工房プレビュー'){
+ if(!Array.isArray(stages)||!stages.length)return;
+ const first=stages[0];
+ enqueue({title:first.title,detail:first.detail,icon:first.icon,theme:first.theme,
+  card,stages:stages.slice(0,12),at:Date.now()});
 }
-root.ChaosPopups={ingest,preview,clear,isBusy};
+function preview(title,detail,icon='✨',theme='magic',duration=1900){
+ previewSequence([{title:String(title),detail:String(detail),icon:String(icon),theme,duration}]);
+}
+root.ChaosPopups={ingest,preview,previewSequence,clear,isBusy};
 })(typeof window!=='undefined'?window:globalThis);
