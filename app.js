@@ -85,7 +85,15 @@ function battle(){const p=me(),active=amTurn(),def=amDefending(),cards=chosenCar
 function finished(){const winner=state.players.find(x=>x.id===state.winner);return `<section class="finish-view"><span class="finish-emblem">${winner?'🏆':'☄️'}</span><span class="section-overline">BATTLE FINISHED</span><h1>${winner?`${e(winner.name)}の勝利！`:'引き分け！'}</h1><p>カード1枚で、また世界が変わる。次の戦いへ。</p><div class="finish-list">${state.players.map((p,i)=>`<div class="lobby-member"><span>${ICONS[i%ICONS.length]}</span><strong>${e(p.name)}</strong><b>${p.hp} HP ${p.id===state.winner?'🥇':''}</b></div>`).join('')}</div>${state.me===state.host?'<button class="primary big" data-action="reset">ロビーに戻って再戦 →</button>':'<p>ホストが次の試合を準備しています。</p>'}<button class="subtle" data-action="leave">部屋から退出</button></section>`;}
 function render(){const app=$('app');if(!app)return;app.innerHTML=!state?landing():state.phase==='lobby'?lobby():state.phase==='game'?battle():finished();updateClock();}
 function updateClock(){const el=$('clock');if(!el||!state)return;if(busyPopup()){el.textContent='🎬 演出中';el.classList.remove('urgent');return;}let sec=Math.max(0,Math.ceil(((state.deadline||0)-Date.now())/1000));el.textContent=Number.isFinite(sec)?sec+'秒':'--';el.classList.toggle('urgent',sec<10);}
-setInterval(updateClock,400);
+let wasPopupBusy=false;
+setInterval(()=>{
+ const busy=busyPopup();
+ updateClock();
+ // The host's clock gate can expire between network snapshots. Re-render the
+ // hand and defend controls locally rather than leaving them visually disabled.
+ if(wasPopupBusy&&!busy&&state?.phase==='game')render();
+ wasPopupBusy=busy;
+},400);
 function act(type,args={}){if(type!=='leave'&&busyPopup()){toast('🎬 演出中です。終わるまで操作をお待ちください');return;}try{net.act({type,...args});}catch(err){toast(err.message,true);}}
 async function joinGame(kind){name=($('player-name')?.value||name||'旅人').trim().slice(0,14);save('cr3-name',name);$('connection-status').textContent='接続中…';try{
  if(kind==='create'){const code=await net.create(name);history.replaceState(null,'',location.pathname+'?room='+code);toast('部屋ができました。招待リンクを共有できます！');}
