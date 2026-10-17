@@ -217,9 +217,9 @@ def on_play():
     battle_log("{self.name} は {bonus}G を獲得！")
 ```
 
-**`popup(title, message, icon, theme)`** は保存されたポップイベントを全員に配信し、アニメーションで見せます。`message` と `title` 内の `{変数名}`、`{self.hp}`、`{target.hand[0].power}`、`{hand_count('target', 'defense')}` のような中身を、そのイベント実行時の値に置き換えます。`{bonus * 2}` のような算術式も利用できます。`{{`/`}}` は文字としての波括弧を表示します。`format("現在 {self.gold}G")` を使うと文章だけを生成できます。
+**`popup(title, message, icon, theme, duration_ms)`** は保存されたポップイベントを全員に配信し、アニメーションで見せます。`message` と `title` 内の `{変数名}`、`{self.hp}`、`{target.hand[0].power}`、`{hand_count('target', 'defense')}` のような中身を、そのイベント実行時の値に置き換えます。`{bonus * 2}` のような算術式も利用できます。`{{`/`}}` は文字としての波括弧を表示します。`format("現在 {self.gold}G")` を使うと文章だけを生成できます。
 
-ポップ色は次の5種類です。
+ポップ色は次の9種類です。
 
 | theme | 見た目 | 使用例 |
 |---|---|---|
@@ -228,6 +228,10 @@ def on_play():
 | `"success"` | 緑の回復演出 | 回復、護符 |
 | `"gold"` | 金色の報酬演出 | Gold・アイテム獲得 |
 | `"info"` | 青の情報演出 | 戦況告知、読み取り |
+| `"rainbow"` | 虹色に流れるアニメーショングラデーション | 777・プレミア演出 |
+| `"aurora"` | 青緑・紫のゆらめくオーロラ | リーチ・特殊変化 |
+| `"sunset"` | ピンクから橙への夕焼けアニメーション | 激アツ・発展演出 |
+| `"neon"` | ネオンの光彩が動くグラデーション | 図柄変動・予告 |
 
 省略すると `popup("発動！")` でも動作し、デフォルトは魔法色です。アイコン・色はカード作者が指定し、表示文字列はHTMLとして実行されません。巨大な演出や連続スパムを防ぐため、1回のイベントで最大6個、最近の配信履歴は12個までです。実行テスト中はポップの見た目も確認できます。
 
@@ -288,7 +292,7 @@ def on_play():
 | `int(value)` | 整数部分 |
 | `round(value)` | 四捨五入 |
 
-### ゲーム操作・演出関数（29種類）
+### ゲーム操作・演出関数（31種類）
 
 | 関数（例） | 何ができるか |
 |---|---|
@@ -319,7 +323,9 @@ def on_play():
 | `give("target", "gold", 100)` | 自分のGold/MPを対象へ渡す |
 | `swap_stat("hp")` | 自分と対象のHP/MP/Gold/バリアを交換 |
 | `shuffle_hand("self")` | 手札の順番をシャッフル |
-| `popup("天罰発動！", "HP {target.hp} / 倍率 {bonus}", "⚡", "danger")` | 全員にアニメーション付きのオリジナルポップを表示。{式}を置換 |
+| `popup("天罰発動！", "HP {target.hp} / 倍率 {bonus}", "⚡", "danger", 1400)` | 1つのカスタムポップを表示。5番目の引数は表示時間ms |
+| `popup_update("🌈 大当たり！", "図柄 {a}{b}{c}", "🌈", "rainbow", 2400)` | 直前のポップを閉じずに、タイトル・本文・絵文字・色を切り替える |
+| `popup_wait(650)` | 現在のポップの表示時間を650ms延長 |
 | `battle_log("ボーナス {bonus} を獲得！")` | カスタム戦闘ログを全員へ表示 |
 
 **共通の対象指定**：`"self"` 自分、`"target"` そのカードの対象、`"everyone"` 生存者全員、`"all_enemies"` 自分以外の生存者、`"random_enemy"` 生存している敵からランダムです。
@@ -361,4 +367,55 @@ def on_play():
 - 引数は最大8個、1つの式は最大40行、スクリプト全体で最大600個の非空行という安全制限を維持しています。
 - 開いた括弧が閉じていない場合や、閉じ括弧が余っている場合には該当行のエラーを表示します。
 - 回帰テスト: `node tests/multiline-casino.test.js`。実際の「CRフィーバー777」を使い、777大当たり／通常大当たり／リーチ復活／失敗／7の単発／完全ハズレを検証します。
+
+
+
+## 🎰 演出BUSY・動的なポップ変更（2026-10-17）
+
+同じポップアップを一度だけ表示して、**文字・計算結果・アイコン・テーマを段階的に書き換え**できます。すべてのステージが終了するまで**他のプレイヤー操作・CPU操作・次のターン・制限時間のカウント**をホスト側で一時停止します。
+
+```python
+card.name = "レインボー777"
+card.type = "item"
+card.emoji = "🎰"
+card.effect = "normal"
+card.cost = 7
+card.resource = "gold"
+
+def on_play():
+    a = randint(0, 9)
+    b = randint(0, 9)
+    c = randint(0, 9)
+
+    popup("図柄変動開始！", "【？】【？】【？】", "🎰", "neon", 850)
+    popup_update("第1停止", "【{a}】【？】【？】", "⚡", "sunset", 900)
+
+    if a == b:
+        popup_update("激アツリーチ！", "【{a}】【{b}】【？】", "🔥", "aurora", 1400)
+        popup_wait(700)
+    else:
+        popup_update("第2停止", "【{a}】【{b}】【？】", "🎰", "info", 900)
+
+    if a == 7 and b == 7 and c == 7:
+        popup_update("🌈 超・大当たり！", "【{a}】【{b}】【{c}】", "👑", "rainbow", 2600)
+        damage("all_enemies", 777777)
+    elif a == b and b == c:
+        popup_update("✨ 大当たり！", "【{a}】【{b}】【{c}】", "💎", "gold", 1800)
+        damage("all_enemies", 77)
+    else:
+        popup_update("残念…", "【{a}】【{b}】【{c}】", "💀", "danger", 1000)
+        damage("self", 5)
+```
+
+**追加API：** `popup(title, detail, icon="✨", theme="magic", duration_ms=1900)`、`popup_update(title, detail, icon="✨", theme="magic", duration_ms=1300)`、`popup_wait(duration_ms=700)`。末尾の時間は**ミリ秒**で、`popup` および `popup_update` は350〜5000ms、`popup_wait` は0〜3000msです。複数行での引数記述も使用できます。
+
+**安全仕様・通信：**
+
+- `popup_update()` と `popup_wait()` は、同じイベント内で先に `popup()` を呼ぶ必要があります。無効な順序はコード実行エラーとして表示され、永久待機にはなりません。
+- 1回のコードイベントで新規ポップは最大6個、1つのポップで最大12ステージ。1回の連続演出によるbusyは**最大24秒**です。
+- 時間はホストのゲーム状態に保存されるため、P2P・Firebase・WebSocket中継の各端末が同じ進行停止を共有します。演出終了後は自動解除され、途中でタブを閉じても解除用の手動操作は必要ありません。ホスト離脱による部屋終了の制約は通信方式ごとに従来どおりです。
+- `{a}`、`{self.gold}` などの**文字置換は各 `popup_update` 実行時に確定した値**で、後からゲーム状態が変更されても表示済みステージが勝手に変わるわけではありません。
+- **カード効果の数値処理自体は発動時に同期的・原子的に実行されます。** その後、表示演出が終わるまで**次のゲーム操作とターン進行**を待たせる設計です。個々の `damage()` までリアルタイムに遅延実行する仕様ではありません。
+- アニメーションを減らすOS設定（`prefers-reduced-motion`）に対応。ユーザーの文字はHTMLに変換しません。
+- 実行テストもポップの複数ステージを順番に表示します。確認には `node tests/popup-busy-timeline.test.js` と `node tests/popup-stages-ui.test.js` を使用します。
 
