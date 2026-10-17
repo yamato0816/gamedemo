@@ -2,14 +2,14 @@
 (function(root){
 'use strict';
 const EVENTS=['play','hit','defend','block','turn_start','guard'];
-const EFFECTS=['damage','heal','set_hp','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack','set_resource','set_shield','set_status','remove_status','heal_percent','draw_type','duplicate','clear_hand','give','swap_stat','shuffle_hand','popup','battle_log'];
+const EFFECTS=['damage','heal','set_hp','status','shield','resource','draw','cleanse','summon','phenomenon','steal','boost_attack','boost_defense','discard','swap_hands','multiply_attack','set_resource','set_shield','set_status','remove_status','heal_percent','draw_type','duplicate','clear_hand','give','swap_stat','shuffle_hand','popup','popup_update','popup_wait','battle_log'];
 const READS=['len','count_cards','sum_power','card_at','count_element','count_effect','sum_cost','highest_power','lowest_power','random_card','hand_count','hand_power','hand_cost','alive_count','enemy_count','total_hp','total_shield','status_turns','guardian_turns','has_guardian','is_alive','random_enemy','player_at','turn_player','is_my_turn','format','str','floor','ceil','sqrt','clamp','contains','damage_dealt','damage_taken','my_hp','target_hp','my_mp','target_mp','my_gold','target_gold','my_defense_cards','target_defense_cards','incoming_damage','round_number','has_status','randint','chance','min','max','abs','int','round'];
 const WHOS=['self','target','everyone','all_enemies','random_enemy'];
 const ST=['poison','burn','freeze','curse','weak'];
 const GD=['phoenix','turtle','sprite','storm','muse'];
 const PH=['random','blessing','meteor','exchange','silence','fog','mana_rain','earthquake'];
 const CARD_TYPES=['attack','defense','magic','item','guardian','omen'];
-const POPUP_THEMES=['magic','danger','success','gold','info'];
+const POPUP_THEMES=['magic','danger','success','gold','info','rainbow','aurora','sunset','neon'];
 // A public catalogue drives Monaco suggestions and the mobile insert palette.
 const API_DOCS={
  len:['array','配列または文字列の長さ'],count_cards:['target.hand, "defense"','指定したカード種類の枚数'],
@@ -67,7 +67,9 @@ const API_DOCS={
  boost_attack:['100','現在の攻撃威力に加算'],
  multiply_attack:['3','現在の攻撃威力を指定倍率に'],
  boost_defense:['100','現在の防御力に加算'],
- popup:['"天罰発動！", "HP {target.hp} / 倍率 {bonus}", "⚡", "danger"','全員にアニメーション付きのオリジナルポップを表示。{式}を置換'],
+ popup:['"大当たり！", "図柄 {a}{b}{c}", "🎰", "rainbow", 1800','ポップを表示。タイトル・本文・アイコン・色・表示時間（ms）'],
+ popup_update:['"リーチ！", "【{a}】【{b}】？", "🔥", "sunset", 1200','同じポップの文字・変数・アイコン・色を次の段階へ切り替える'],
+ popup_wait:['700','直前のポップの今の段階を指定ms長く表示する（上限あり）'],
  battle_log:['"ボーナス {bonus} を獲得！"','カスタム戦闘ログを全員へ表示']
 };
 const fail=(msg,line)=>{throw Error((line?`行 ${line}: `:'')+msg);};
@@ -341,7 +343,13 @@ function run(program,event,ctx,actions){
     else if(f==='give')actions.give(who(arg(0,'target')),check(arg(1,'gold'),['mp','gold'],'資源'),cap(arg(2,0)));
     else if(f==='swap_stat')actions.swap_stat(check(arg(0,'hp'),['hp','mp','gold','shield'],'ステータス'));
     else if(f==='shuffle_hand')actions.shuffle_hand(who(arg(0,'self')));
-    else if(f==='popup')actions.popup(renderTemplate(arg(0,'')),renderTemplate(arg(1,'')),String(arg(2,'✨')),check(arg(3,'magic'),POPUP_THEMES,'ポップ色'));
+    else if(f==='popup'||f==='popup_update'){
+      const title=renderTemplate(arg(0,'')),detail=renderTemplate(arg(1,''));
+      const icon=String(arg(2,'✨')),theme=check(arg(3,'magic'),POPUP_THEMES,'ポップ色');
+      const duration=cap(arg(4,f==='popup'?1900:1300),350,5000);
+      actions[f](title,detail,icon,theme,duration);
+    }
+    else if(f==='popup_wait')actions.popup_wait(cap(arg(0,700),0,3000));
     else if(f==='battle_log')actions.battle_log(renderTemplate(arg(0,'')));
     return 0;
   }
