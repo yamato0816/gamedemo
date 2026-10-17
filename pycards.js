@@ -344,8 +344,12 @@ function run(program,event,ctx,actions){
     else if(f==='swap_stat')actions.swap_stat(check(arg(0,'hp'),['hp','mp','gold','shield'],'ステータス'));
     else if(f==='shuffle_hand')actions.shuffle_hand(who(arg(0,'self')));
     else if(f==='popup'||f==='popup_update'){
-      const title=renderTemplate(arg(0,'')),detail=renderTemplate(arg(1,''));
-      const icon=String(arg(2,'✨')),theme=check(arg(3,'magic'),POPUP_THEMES,'ポップ色');
+      // When updating a popup, omitted fields retain their previous values.
+      const keep=f==='popup_update';
+      const title=keep&&args[0]===undefined?null:renderTemplate(arg(0,''));
+      const detail=keep&&args[1]===undefined?null:renderTemplate(arg(1,''));
+      const icon=keep&&args[2]===undefined?null:String(arg(2,'✨'));
+      const theme=keep&&args[3]===undefined?null:check(arg(3,'magic'),POPUP_THEMES,'ポップ色');
       const duration=cap(arg(4,f==='popup'?1900:1300),350,5000);
       actions[f](title,detail,icon,theme,duration);
     }
