@@ -13,7 +13,7 @@ class RelayOnline {
    ws.onopen=()=>this.onInfo('中継へ接続しています');
    ws.onmessage=ev=>{let msg;try{msg=JSON.parse(ev.data)}catch{return;}if(!msg||typeof msg!=='object')return;
       if(msg.type==='ready'){
-        if(this.isHost){this.room=GameEngine.create(this.code,this.id,name);this.ready=true;this.onInfo('WSS中継（ホスト）');this._broadcast();this.clock=setInterval(()=>{if(this.room){GameEngine.settle(this.room);if(++this.heartbeat%2===0)this._broadcast();}},1000);settle();}
+        if(this.isHost){this.room=GameEngine.create(this.code,this.id,name);this.ready=true;this.onInfo('WSS中継（ホスト）');this._broadcast();this.clock=setInterval(()=>{if(this.room){GameEngine.settle(this.room);const current=this.room.popupBusyUntil||0;if(current!==this.lastPopupBusy||++this.heartbeat%2===0)this._broadcast();}},1000);settle();}
         else{this.onInfo('ホストを探しています');ws.send(JSON.stringify({type:'hello',name}));}
       }else if(msg.type==='state'&&!this.isHost){this.ready=true;this.onState(msg.state);this.onInfo('WSS中継に接続');settle();}
       else if(msg.type==='hello'&&this.isHost){try{GameEngine.join(this.room,msg.from,String(msg.name||'旅人').slice(0,14));this.peers.add(msg.from);this._broadcast();}catch(err){this.onError(err.message);}}
@@ -26,7 +26,7 @@ class RelayOnline {
  });}
  create(name){this.disconnect();this.code=generateCode();this.id='host-'+makeId();this.isHost=true;return this._open('host',String(name||'旅人').slice(0,14));}
  join(roomCode,name){this.disconnect();this.code=String(roomCode||'').trim().toUpperCase();if(!/^[A-HJ-NP-Z2-9]{7}$/.test(this.code))return Promise.reject(Error('部屋コードは7文字です'));this.id='guest-'+makeId();this.isHost=false;return this._open('guest',String(name||'旅人').slice(0,14));}
- _broadcast(){if(!this.room||this.socket?.readyState!==1)return;GameEngine.settle(this.room);const own=GameEngine.view(this.room,this.id);if(own)this.onState(own);for(const id of this.peers){const view=GameEngine.view(this.room,id);if(view)this.socket.send(JSON.stringify({type:'state',to:id,state:view}));}}
+ _broadcast(){if(!this.room||this.socket?.readyState!==1)return;GameEngine.settle(this.room);this.lastPopupBusy=this.room.popupBusyUntil||0;const own=GameEngine.view(this.room,this.id);if(own)this.onState(own);for(const id of this.peers){const view=GameEngine.view(this.room,id);if(view)this.socket.send(JSON.stringify({type:'state',to:id,state:view}));}}
  act(action){if(!this.ready)throw Error('通信が未接続です');if(this.isHost){GameEngine.apply(this.room,this.id,action);this._broadcast();}else if(this.socket?.readyState===1)this.socket.send(JSON.stringify({type:'action',action}));else throw Error('中継が切れています');}
  disconnect(){clearInterval(this.clock);this.clock=null;this.peers.clear();if(this.socket){try{if(this.isHost&&this.socket.readyState===1)this.socket.send(JSON.stringify({type:'closed'}));this.socket.close()}catch{}}this.socket=null;this.room=null;this.ready=false;this.isHost=false;}
 }
