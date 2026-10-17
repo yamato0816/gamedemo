@@ -92,7 +92,7 @@ now+=10000;
 now+=10000;
 {
  const {r,actor,other}=room();
- const code2='card.type = "item"\ncard.effect="normal"\ndef on_play():\n    popup("新規", "はじめ", "✨", "info", 400)\n    popup_update("更新", "最後", "🌈", "rainbow", 500)';
+ const code2='card.name="虹の抽選"\ncard.type = "item"\ncard.effect="normal"\ndef on_play():\n    popup("新規", "はじめ", "✨", "info", 400)\n    popup_update("更新", "最後", "🌈", "rainbow", 500)';
  actor.hand=[{...E.card({script:code2},'作者'),uid:'EDIT'}];
  E.apply(r,actor.id,{type:'use',card:'EDIT',target:other.id});
  // Host migration restores from checkpoint without a volatile JS timer.
@@ -104,7 +104,7 @@ now+=10000;
 now+=10000;
 {
  const {r,actor,other}=room();
- const slow='card.type = "item"\ncard.effect="normal"\ndef on_play():\n    popup("開始","待機","🎰","info",5000)\n    popup_wait(3000)\n    popup_update("1","続き","🌈","rainbow",5000)\n    popup_wait(3000)\n    popup_update("2","続き","🌈","rainbow",5000)\n    popup_update("3","続き","🌈","rainbow",5000)';
+ const slow='card.name="長い演出"\ncard.type = "item"\ncard.effect="normal"\ndef on_play():\n    popup("開始","待機","🎰","info",5000)\n    popup_wait(3000)\n    popup_update("1","続き","🌈","rainbow",5000)\n    popup_wait(3000)\n    popup_update("2","続き","🌈","rainbow",5000)\n    popup_update("3","続き","🌈","rainbow",5000)';
  actor.hand=[{...E.card({script:slow},'作者'),uid:'SLOW'}];
  E.apply(r,actor.id,{type:'use',card:'SLOW',target:other.id});
  assert.ok(r.popupBusyUntil-now<=24000,'hard maximum avoids rooms being frozen indefinitely');
@@ -114,7 +114,7 @@ now+=10000;
 now+=10000;
 {
  const {r,actor,other}=room();
- const invalid='card.type="item"\ncard.effect="normal"\ndef on_play():\n    popup_update("oops","before first popup","💀","danger")';
+ const invalid='card.name="無効な演出"\ncard.type="item"\ncard.effect="normal"\ndef on_play():\n    popup_update("oops","before first popup","💀","danger")';
  actor.hand=[{...E.card({script:invalid},'作者'),uid:'BAD'}];
  E.apply(r,actor.id,{type:'use',card:'BAD',target:other.id});
  assert.equal(r.scriptFeedback.ok,false,'invalid update records safe script failure');
