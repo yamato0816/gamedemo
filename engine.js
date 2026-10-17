@@ -299,8 +299,11 @@ function crRules(r,card,event,ctx){
       if(lastPopup.stages.length>=12)return;
       const length=crPopupHold(r,duration);
       if(!length)return;
-      lastPopup.stages.push({title:crText(title,70),detail:crDescription(detail).slice(0,420),
-        icon:crText(icon||'✨',12),theme,duration:length});
+      const previous=lastPopup.stages[lastPopup.stages.length-1];
+      lastPopup.stages.push({title:title===null?previous.title:crText(title,70),
+        detail:detail===null?previous.detail:crDescription(detail).slice(0,420),
+        icon:icon===null?previous.icon:crText(icon||'✨',12),
+        theme:theme===null?previous.theme:theme,duration:length});
       lastPopup.durationMs+=length;
     },
     popup_wait:ms=>{
