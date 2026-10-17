@@ -9,7 +9,7 @@ const THEMES=new Set(['magic','danger','success','gold','info','rainbow','aurora
 let rootEl=null,cardEl=null,busyShield=null,hideTimer=0,nextTimer=0,busyTimer=0;
 let room='',phase='',seen=0,queue=[],running=false,serverBusyUntil=0;
 const safeTheme=value=>THEMES.has(value)?value:'magic';
-const stageDuration=value=>Math.max(200,Math.min(5000,Number(value)||2500));
+const stageDuration=value=>Math.max(200,Math.min(24000,Number(value)||2500));
 function ensure(){
  if(rootEl?.isConnected)return rootEl;
  rootEl=root.document.createElement('div');
