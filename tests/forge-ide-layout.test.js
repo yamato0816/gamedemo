@@ -46,4 +46,18 @@ for(const [w,h] of [[1632,800],[1366,768],[1024,700],[390,844]]){
   assert.ok(share>=.60,`code region must occupy 60%+ viewport at ${w}×${h}: ${Math.round(share*100)}%`);
 }
 console.log('PASS code-first layout area constraints and on-demand drawers');
+const classroom=fs.readFileSync(__dirname+'/../forge-classroom.css','utf8');
+assert.match(html,/forge-classroom\\.css\\?v=/,'friendly classroom stylesheet loaded');
+assert.ok(html.indexOf('forge-classroom.css')>html.indexOf('forge-focus.css'),'friendly stylesheet overrides dark drawer layout');
+assert.match(app,/class="forge-dictionary"/,'reference dictionary should be in the right panel');
+assert.match(app,/<section class="forge-terminal"[\\s\\S]*?<\\/section><\\/aside><\\/div>/,'terminal should be nested at bottom of right side');
+assert.ok(!app.includes('id="forge-preview"'),'card preview is intentionally removed');
+assert.match(classroom,/grid-template-columns:34px clamp\\(154px,11\\.2vw,188px\\) minmax\\(0,1fr\\) clamp\\(255px,20vw,318px\\)/,'three-pane desktop grid required');
+assert.match(classroom,/\\.forge-dictionary\\{flex:1 1 auto/,'dictionary fills upper right pane');
+assert.match(classroom,/\\.forge-terminal[\\s\\S]*?flex:0 0 31%/,'results persist in lower right pane');
+assert.match(classroom,/body\\.forge-open \\.cr-custom-popups\\{z-index:2500!important/,'test popups appear in front of editor');
+assert.match(app,/if\\(editorMode==='form'\\)/,'form mode must have its own tester');
+assert.match(app,/ForgeFormTest\\.run\\(draft\\)/,'form mode executes real form data');
+assert.match(html,/forge-form-test\\.js/,'local form tester script loaded');
+console.log('PASS classroom three-column code, dictionary and results contract');
 console.log('PASS fullscreen Forge IDE structural and responsive contract');
