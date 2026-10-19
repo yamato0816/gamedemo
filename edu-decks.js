@@ -54,7 +54,7 @@
       items.push({name:'card-'+String(i+1).padStart(3,'0')+'.crcard',
         data:new Uint8Array(await blob.arrayBuffer())});
     }
-    items.push({name:'README.txt',data:encoder.encode('CHAOS RELIC EDU encrypted card ZIP. Import using the game and the classroom submission password.\\n')});
+    items.push({name:'README.txt',data:encoder.encode('CHAOS RELIC EDU encrypted card ZIP. Import using the game and the classroom submission password.\n')});
     return zipFiles(items);
   }
   async function download(cards,password,filename='chaos-relic-class-deck.zip'){
@@ -119,7 +119,7 @@
       if (budget.bytes > MAX_UNPACKED) throw Error('読み込み全体の展開サイズが8MBを超えました');
       entries.push({ name, bytes: unpacked, isNested, isCard });
     }
-    const combined = entries.find(x => !x.isNested && !x.isCard && /(^|\\/)chaos-relic-deck\\.json$/i.test(x.name));
+    const combined = entries.find(x => !x.isNested && !x.isCard && /(^|\/)chaos-relic-deck\.json$/i.test(x.name));
     if (combined) return [{ kind:'json', data:decoder.decode(combined.bytes) }];
     const result=[];
     for(const entry of entries){
@@ -137,11 +137,11 @@
     if(selected.length>100)throw Error('一度に100ファイルまで読み込めます');
     const entries=[], budget={bytes:0};
     for(const file of selected){
-      if(/\\.zip$/i.test(file.name))entries.push(...await readZip(file,0,budget));
-      else if(/\\.crcard$/i.test(file.name)){
+      if(/\.zip$/i.test(file.name))entries.push(...await readZip(file,0,budget));
+      else if(/\.crcard$/i.test(file.name)){
         if((budget.bytes+=file.size)>MAX_UNPACKED)throw Error('読み込み合計が8MBを超えました');
         entries.push({kind:'card',data:new Uint8Array(await file.arrayBuffer())});
-      }else if(/\\.json$/i.test(file.name)){
+      }else if(/\.json$/i.test(file.name)){
         if((budget.bytes+=file.size)>MAX_UNPACKED)throw Error('読み込み合計が8MBを超えました');
         entries.push({kind:'json',data:await file.text()});
       }else throw Error('対応形式は.crcard、ZIP、JSONです：'+file.name);
