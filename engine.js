@@ -730,7 +730,8 @@ const API={
     if(r.players.some(p=>p.id===id))return;
     if(r.phase!=='lobby')throw Error('対戦中です。次の試合から参加してください');
     if(r.players.length>=8)throw Error('満員です（最大8人）');
-    r.players.push(crPlayer(id,crText(name,14)||'旅人',false)); crLog(r,`👋 ${name} が参加`);
+    const visibleName=r.classroom?`生徒${String(r.players.filter(x=>!x.bot).length).padStart(2,'0')}`:(crText(name,14)||'旅人');
+    r.players.push(crPlayer(id,visibleName,false)); crLog(r,`👋 ${visibleName} が参加`);
   },
   leave(r,id){const p=r.players.find(x=>x.id===id);if(!p)return;crApply(r,{type:'leave'},p);},
   apply(r,id,msg){
