@@ -18,6 +18,22 @@ This is an experimental addition to the existing game, not a school production r
 4. For a single group (max seven guests plus host), create a teacher-moderated room and publish the approved batch. Other groups may import the same ZIP and play a solo CPU match when school networking blocks the relay.
 5. Download and retain student documents and grading data only with school-approved tools. This experiment does **not** store marks in the game or connect to Google accounts.
 
+
+### Cloudflare Workers Git integration (important)
+
+When the `gamedemo` Worker is connected to this GitHub repository in the Cloudflare dashboard, **do not build from the repository root**: it is a static website and does not contain the relay's `wrangler.jsonc`. A root-level automatic deploy could replace the relay implementation on the same Worker URL.
+
+Go to **gamedemo → Settings → Builds** and configure:
+
+- **Root directory:** `relay-worker`
+- **Production branch:** `main`
+- **Build command:** leave empty
+- **Deploy command:** `npx wrangler deploy`
+
+The `relay-worker/wrangler.jsonc` name matches the production service (`gamedemo`) and declares the `ROOMS` Durable Object. If the service has already been overwritten, redeploy the correct Worker from the `relay-worker` directory after saving the build settings: `npx wrangler deploy`.
+
+`GET /health` must return `CHAOS RELIC relay ready`. A normal **HTTP** request to a valid `/room/XXXXXXX` path should return `426 WebSocket upgrade required`, not `404`. For actual play, use a **WebSocket** connection; an HTTP GET is only a routing diagnostic.
+
 ## Cloudflare relay setup
 
 The repository contains `relay-worker/src/worker.js` and `relay-worker/wrangler.jsonc`.
