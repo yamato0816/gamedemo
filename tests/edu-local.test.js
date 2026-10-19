@@ -3,6 +3,23 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
+function compressedZip(filename, content) {
+  const name=Buffer.from(filename,'utf8'), data=Buffer.from(content), packed=zlib.deflateRawSync(data);
+  let crc=-1;for(const b of data){crc^=b;for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+  crc=(crc^-1)>>>0;
+  const local=Buffer.alloc(30+name.length), central=Buffer.alloc(46+name.length), end=Buffer.alloc(22);
+  local.writeUInt32LE(0x04034b50,0);local.writeUInt16LE(20,4);local.writeUInt16LE(8,6);local.writeUInt16LE(8,8);
+  local.writeUInt32LE(crc,14);local.writeUInt32LE(packed.length,18);local.writeUInt32LE(data.length,22);local.writeUInt16LE(name.length,26);name.copy(local,30);
+  central.writeUInt32LE(0x02014b50,0);central.writeUInt16LE(20,4);central.writeUInt16LE(20,6);
+  central.writeUInt16LE(8,8);central.writeUInt16LE(8,10);central.writeUInt32LE(crc,16);
+  central.writeUInt32LE(packed.length,20);central.writeUInt32LE(data.length,24);central.writeUInt16LE(name.length,28);name.copy(central,46);
+  end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(1,8);end.writeUInt16LE(1,10);
+  end.writeUInt32LE(central.length,12);end.writeUInt32LE(local.length+packed.length,16);
+  return Buffer.concat([local,packed,central,end]);
+}
+const asFile=(name,data)=>({name,size:data.length,arrayBuffer:async()=>data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength)});
+
 const context = vm.createContext({
   crypto, Blob, TextEncoder, TextDecoder, DecompressionStream, Response,
   Math, Date, console, setInterval, clearInterval
@@ -25,6 +42,13 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   const json = JSON.stringify({ format:'chaos-relic-edu-deck',version:1,cards:[card] });
   const importedJson = await EduDecks.readFiles([{name:'deck.json',size:json.length,text:async()=>json}]);
   assert.equal(importedJson.length,1);
+  const packedJson=compressedZip('submissions/card.json',Buffer.from(json));
+  const packedCards=await EduDecks.readFiles([asFile('folder.zip',packedJson)]);
+  assert.equal(packedCards.length,1,'Drive ZIP with compressed JSON imports correctly');
+  const nestedZip=compressedZip('class/student01.zip',Buffer.from(await zip.arrayBuffer()));
+  const nestedCards=await EduDecks.readFiles([asFile('school-folder.zip',nestedZip)]);
+  assert.equal(nestedCards.length,1,'Drive ZIP with student ZIP inside imports correctly');
+
   let snapshots = [],messages = [];
   const solo = new LocalOnline({onState:s=>snapshots.push(s),onInfo:m=>messages.push(m),onError:()=>{},onClosed:()=>{}});
   await solo.create('生徒');
