@@ -1,45 +1,37 @@
-/* Read-only code explorer for built-in engine cards and authored cards. */
+/* Card workshop source reference: only show Forge-compatible Python-like code.
+ * Base cards are generated as card.* settings; native engine.js is never exposed.
+ */
 (function(root){
-  'use strict';
-  const SOURCE_FUNCTIONS={
-    attack:'crAttack', defense:'crDefend', magic:'crUse',
-    item:'crUse', guardian:'crUse', omen:'crUse'
+ 'use strict';
+ const HELP={
+  attack:['# 発展例：攻撃が命中したときHPを回復する','# def on_hit():','#     heal("self", 3)'],
+  defense:['# 発展例：防御の威力を高める','# def on_guard():','#     boost_defense(3)'],
+  magic:['# 発展例：使ったとき自分を回復','# def on_play():','#     heal("self", 3)'],
+  item:['# 発展例：使ったときMPを追加','# def on_play():','#     resource("self", "mp", 3)'],
+  guardian:['# 発展例：毎ターンバリアを張る','# def on_turn_start():','#     shield("self", 3)'],
+  omen:['# 発展例：全敵に追加ダメージ','# def on_play():','#     damage("all_enemies", 3)']
+ };
+ function entries(localCards=[],sharedCards=[]){
+  return [
+   ...(root.GameEngine?.base||[]).map(card=>({card,origin:'base'})),
+   ...localCards.map(card=>({card,origin:'local'})),
+   ...sharedCards.map(card=>({card,origin:'room'}))
+  ];
+ }
+ function summary(card,origin){
+  if(card.script?.trim())return {label:'工房で書かれたPython風コード（そのまま利用可能）',code:card.script};
+  const source=root.CardForge.toCode(card);
+  if(origin!=='base')return {
+   label:'工房に貼り付けられるフォーム再現コード',
+   code:'# フォームの基本効果は card.type / card.effect / card.power で再現します。\n'+source
   };
-  let engineTextPromise=null;
-  function entries(localCards=[],sharedCards=[]){
-    const base=(root.GameEngine?.base||[]).map(card=>({card,origin:'base'}));
-    const local=localCards.map(card=>({card,origin:'local'}));
-    const shared=sharedCards.map(card=>({card,origin:'room'}));
-    return [...base,...local,...shared];
-  }
-  function summary(card,origin){
-    if(card.script?.trim())return {
-      label:'実際のPython風カードスクリプト',
-      code:card.script
-    };
-    return {
-      label: origin==='base'?'参考コード（この基本カードの設定値をPython風に表現）':'参考コード（フォームの入力値から生成）',
-      code:'# このコードは表示用の参考例です。実際の基本効果は engine.js が実装しています。\n'
-        +root.CardForge.toCode(card)
-    };
-  }
-  function extractFunction(source,name){
-    const pattern='function '+name+'(';
-    const at=source.indexOf(pattern);
-    if(at<0)throw Error(name+' のソースコードを見つけられません');
-    const rest=source.slice(at), next=/\n(?:function|const|global\.)\s/.exec(rest.slice(pattern.length));
-    return rest.slice(0,next?next.index+pattern.length:rest.length).trim();
-  }
-  async function actualImplementation(card){
-    if(!card?.id?.startsWith('base-'))return null;
-    const fn=SOURCE_FUNCTIONS[card.type];
-    if(!fn)return null;
-    if(!engineTextPromise){
-      engineTextPromise=fetch(new URL('engine.js',location.href),{cache:'force-cache'})
-        .then(r=>{if(!r.ok)throw Error('実装ソースを取得できません');return r.text();})
-        .catch(error=>{engineTextPromise=null;throw error;});
-    }
-    return {functionName:fn,code:extractFunction(await engineTextPromise,fn)};
-  }
-  root.CardSourceViewer={entries,summary,extractFunction,actualImplementation};
+  return {
+   label:'工房互換コード（基本効果と発展例）',
+   code:'# 既存の基本カードを工房のコード形式へ変換しました。\n'
+     +'# card.effect により基本効果が発生します（エンジンのJavaScriptではありません）。\n'
+     +source+'\n\n# 以下は学習用の追加効果例です。必要な行の # を外して使えます。\n'
+     +(HELP[card.type]||HELP.item).join('\n')
+  };
+ }
+ root.CardSourceViewer={entries,summary};
 })(typeof window!=='undefined'?window:globalThis);
