@@ -35,11 +35,11 @@ for(const file of ['pycards.js','engine.js','card-forge-model.js','edu-card-cryp
  assert.match(source.code,/boost_defense/);
  const first=GameEngine.base.find(x=>x.type==='attack');
  const entry=CardSourceViewer.summary(first,'base');
- assert.match(entry.label,/参考コード/);
+ assert.match(entry.label,/工房互換コード/);
  assert.match(entry.code,/card\.type/);
- const code=await CardSourceViewer.actualImplementation(first);
- assert.equal(code.functionName,'crAttack');
- assert.match(code.code,/function crAttack\(/);
- assert.ok(!code.code.includes('function crDefend('));
+ assert.match(entry.code,/def on_hit/);
+ assert.ok(!entry.code.includes('function crAttack('),'never show internal engine JavaScript');
+ const program=context.PyCards.compile(entry.code);
+ assert.ok(program.meta,'generated Forge code compiles successfully');
  console.log('PASS: encrypted one-card exports, tamper rejection, encrypted teacher ZIP and source browser');
 })().catch(err=>{console.error(err);process.exitCode=1;});
