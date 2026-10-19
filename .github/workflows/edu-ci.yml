@@ -4,6 +4,7 @@ on:
     paths:
       - 'app.js'
       - 'forge-ide.css'
+      - 'forge-focus.css'
       - 'forge-monaco.js'
       - 'engine.js'
       - 'index.html'
