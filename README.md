@@ -366,3 +366,8 @@ def on_play():
 
 
 **Cloudflare中継の運用注意（再デプロイが必要）**：段階演出による対戦データが増えても不必要に接続を閉じないよう、[relay-worker/src/worker.js](./relay-worker/src/worker.js) の受信サイズ制限を旧65,000文字から262,144文字へ拡張しました。GitHub Pagesだけ更新してもCloudflare Worker側には反映されません。中継を利用中なら、開発PCの `relay-worker` フォルダで `npx wrangler deploy` を再実行してください。新しい中継経路の検証は `node tests/relay-worker-large-popups.test.mjs` です。
+
+
+## 試作：学校向けソロ対戦・ZIP交換（2026-10-19）
+
+教育向けの試作機能、クラウドリレーのデプロイ方法、データの取り扱い、いじめ対策上の制約は [EDU_PILOT.md](./EDU_PILOT.md) を参照してください。ソロCPU戦は通信不要ですが、Webサイトを開くにはネットワークが必要です。教育版はDraft PR段階であり、通常版への反映前に実端末確認が必要です。
