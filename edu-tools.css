@@ -8,3 +8,16 @@
 .deck-tools>small{font-size:.75rem;line-height:1.45;opacity:.75;display:block;}
 .deck-tools:focus-within{outline:2px solid #7b9e94;outline-offset:2px;}
 @media(max-width:560px){.deck-tools{padding:12px}.deck-tools .row-actions button{flex:1 1 100%;}}
+
+.edu-card-submit{margin:12px 0;border:1px solid #d4ccba;border-radius:12px;padding:11px;background:rgba(255,255,255,.52);}
+.edu-card-submit summary{cursor:pointer;font-size:.88rem;font-weight:700;}
+.edu-submit-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-top:1px solid #e4dfd5;font-size:.86rem;}
+.edu-submit-row:first-of-type{margin-top:10px;}
+.edu-submit-row span{min-width:0;overflow-wrap:anywhere;}
+.edu-source-modal{width:min(920px,96vw);max-height:90vh;overflow-y:auto;}
+.edu-source-modal .forge-field{margin:12px 0;}
+.edu-source-modal h3{font-size:1rem;margin:18px 0 8px;}
+.edu-source-detail{font-weight:700;overflow-wrap:anywhere;}
+.edu-source-code{white-space:pre;overflow:auto;max-height:340px;tab-size:4;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;background:#202a2d;color:#e5eeeb;border-radius:12px;padding:15px;user-select:text;}
+.edu-source-modal .row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+@media(max-width:560px){.edu-submit-row{align-items:stretch;flex-direction:column;gap:8px;}.edu-source-code{font-size:11px;padding:11px;}.edu-source-modal{width:97vw;}}
