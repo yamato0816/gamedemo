@@ -13,6 +13,7 @@ body.forge-open{overflow:hidden}
 .forge-page-root #forge-document-title{font-size:11px;color:#abc1cf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:25vw}
 .forge-page-root #forge-dirty{color:#f3bc70}
 .forge-page-root .forge-header-actions{display:flex;align-items:center;gap:8px;min-width:0}
+.forge-page-root .forge-action-mobile{display:none}
 .forge-page-root .forge-header-actions button{font-size:11px;border-radius:6px;padding:9px 11px;min-height:35px;white-space:nowrap}
 .forge-page-root .forge-header-actions .secondary{background:#35424a;border:1px solid #50616c;color:#d9e6ec}
 .forge-page-root .forge-header-actions .primary{background:#33855f;border-color:#33855f;color:white}
@@ -119,6 +120,7 @@ body.forge-open{overflow:hidden}
  .forge-page-root #forge-document-title{font-size:10px;max-width:25vw}
  .forge-page-root .forge-header-actions{gap:4px}
  .forge-page-root .forge-header-actions button{font-size:10px;padding:7px;min-height:33px}
+ .forge-page-root .forge-header-actions .forge-action-mobile{display:inline-flex;align-items:center;justify-content:center;min-width:33px}
  .forge-page-root .forge-header-actions [data-action="validate"],.forge-page-root .forge-header-actions [data-action="forge-output-toggle"]{display:none}
  .forge-page-root .forge-layout,.forge-page-root .forge-layout.forge-code-mode,.forge-page-root .forge-layout.forge-form-mode{grid-template-columns:0 minmax(0,1fr) 0}
  .forge-page-root .forge-explorer{width:0;overflow:hidden}
