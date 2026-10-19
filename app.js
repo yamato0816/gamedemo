@@ -36,7 +36,7 @@ function swapTransport(solo) {
  net.disconnect();
  net=solo?new LocalOnline(callbacks):new Online(callbacks);
 }
-function isSolo(){return net instanceof LocalOnline;}
+function isSolo(){return typeof LocalOnline!=='undefined'&&net instanceof LocalOnline;}
 function ready(){return state&&net.ready;}
 function busyPopup(){return state?.phase==='game'&&((state.popupBusyUntil||0)>Date.now()||!!window.ChaosPopups?.isBusy());}
 function me(){return state?.players.find(p=>p.id===state.me);}
