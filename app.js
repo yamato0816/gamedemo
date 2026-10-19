@@ -29,6 +29,7 @@ let name=load('cr3-name',''),custom=load('cr3-cards',[]),state=null,chosen=new S
 let editorMode='form',editingCardId=null,editingPublishedId=null;
 function editorDraftKey(){return editingPublishedId?'cr3-editor-draft-published-'+editingPublishedId:editingCardId?'cr3-editor-draft-edit-'+editingCardId:'cr3-editor-draft';}
 let pending=false,showRules=false;let timer=null,lastViewHash='';
+let sourceSelected=0,sourceCounter=0;
 function toast(message,bad=false){const t=$('toast');t.textContent=message;t.className='visible'+(bad?' error':'');clearTimeout(timer);timer=setTimeout(()=>t.className='',3300);}
 let net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
 function swapTransport(solo) {
@@ -200,7 +201,45 @@ function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><
 const FX={attack:[['normal','通常'],['drain','HP吸収'],['poison','毒'],['burn','炎上'],['pierce','防御貫通'],['wild','ギャンブル'],['freeze','凍結'],['chain','連鎖攻撃'],['double_hit','追撃'],['siphon','MP強奪'],['guard_hunt','防御札の枚数×威力']],defense:[['normal','通常'],['reflect','等倍反射'],['reflect_full','全反射'],['reflect_double','2倍反射'],['redirect','ランダム転送'],['scatter','攻撃分散'],['nullify','完全無効'],['absorb','魔力吸収'],['counter','反撃'],['mana','MP回復']],magic:[['blast','攻撃魔法'],['drain','HP吸収魔法'],['heal','回復'],['poison','毒'],['freeze','凍結'],['curse','呪い'],['mana','MP補助'],['swap_hp','HP交換'],['mass_poison','全体毒'],['steal_mp','MP強奪'],['scramble','手札一斉交換']],item:[['heal','回復'],['mana','MP回復'],['gold','お金増加'],['draw','カード補充'],['cleanse','浄化'],['lottery','くじ']],guardian:[['sprite','妖精'],['phoenix','不死鳥'],['turtle','玄武'],['storm','雷神'],['muse','月の女神']],omen:[['random','ランダム'],['blessing','祝福'],['meteor','流星雨'],['exchange','資源交換']]};
 const input=(id,label,value,kind='text',opts={})=>`<label class="forge-field"><span>${label}</span><input id="edit-${id}" type="${kind}" ${opts.max?'max="'+opts.max+'"':''} ${kind==='number'?'min="0"':''} value="${e(value)}" ${opts.maxLength?'maxlength="'+opts.maxLength+'"':''}/></label>`;
 function select(id,label,arr,val){return `<label class="forge-field"><span>${label}</span><select id="edit-${id}">${arr.map(([v,t])=>`<option value="${e(v)}" ${v===val?'selected':''}>${e(t)}</option>`).join('')}</select></label>`;}
+function openSourceBrowser(){
+ if(modal==='editor')getDraft();
+ sourceSelected=0;modal='source';renderModal();
+}
+function sourceEntries(){return CardSourceViewer.entries(custom,state?.customCards||[]);}
+async function updateSourceBrowser(){
+ const id=++sourceCounter, entry=sourceEntries()[sourceSelected];
+ const head=$('source-detail'),readout=$('source-code'),engine=$('source-engine'),frame=$('source-engine-frame');
+ if(!head||!readout||!engine||!frame||!entry)return;
+ const {card,origin}=entry,info=CardSourceViewer.summary(card,origin);
+ head.textContent=(card.emoji||'🃏')+' '+card.name+' · '+(TYPE[card.type]?.[0]||card.type)+' · '+info.label;
+ readout.textContent=info.code;engine.textContent='';frame.hidden=true;
+ if(origin==='base'){
+  frame.hidden=false;engine.textContent='エンジンの実コードを読み込み中…';
+  try{
+   const source=await CardSourceViewer.actualImplementation(card);
+   if(id!==sourceCounter)return;
+   engine.textContent=source?.code||'対応する実装が見つかりません';
+  }catch(err){
+   if(id===sourceCounter)engine.textContent='実コードを読み込めませんでした：'+err.message;
+  }
+ }
+}
 function renderModal(){window.ForgeMonaco?.dispose();const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
+ if(modal==='source'){
+  const entries=sourceEntries();
+  parent.innerHTML=`<div class="modal-backdrop"><section class="paper modal edu-source-modal" role="dialog" aria-modal="true" aria-label="カードコード図鑑">
+   <div class="modal-title"><h2>🔎 カードコード図鑑</h2><button class="icon-button" data-action="close" aria-label="閉じる">×</button></div>
+   <p>基本カードの実際のJavaScript処理と、自作カードのPython風コードを読み比べられます。閲覧専用です。</p>
+   <label class="forge-field"><span>カードを選択</span><select id="source-card-select">${entries.map((x,i)=>`<option value="${i}">${e(x.card.emoji||'🃏')} ${e(x.card.name)}（${x.origin==='base'?'基本':'自作'}）</option>`).join('')}</select></label>
+   <p id="source-detail" class="edu-source-detail"></p>
+   <h3>カードの設定・スクリプト</h3><pre id="source-code" class="edu-source-code"></pre>
+   <div id="source-engine-frame" hidden><h3>実際のゲームエンジンの処理（engine.js）</h3>
+    <p>複数の基本カードで共用している処理です。上の参考コードと同じものではありません。</p>
+    <pre id="source-engine" class="edu-source-code"></pre></div>
+   <div class="row-actions"><button class="secondary" data-action="source-copy">📋 上のコードをコピー</button><button class="secondary" data-action="close">閉じる</button></div>
+  </section></div>`;
+  updateSourceBrowser();return;
+ }
  if(modal==='rules'){parent.innerHTML=`<div class="modal-backdrop"><div class="paper modal rules-dialog"><div class="modal-title"><h2>📖 あそびかた</h2><button class="icon-button" data-action="close">×</button></div><p>2〜8人で遊べる、ランダムな手札を使った生き残りカードバトルです。</p><ol><li>手札は最初に9枚。使用した枚数だけランダムに補充されます。</li><li>攻撃カードは1〜3枚同時使用可能。相手は防御カードで防ぎます。</li><li>奇跡・道具・守護神・超常現象を使って逆転を狙いましょう。</li><li>毒や凍結などの状態異常はターン開始時に効果があります。</li><li>最後に生き残った人が勝利です。</li></ol><button class="primary" data-action="close">閉じる</button></div></div>`;return;}
  parent.innerHTML=`<div class="modal-backdrop"><section class="forge-shell" role="dialog" aria-label="カード工房" aria-modal="true">
  <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>${editingCardId||editingPublishedId?"✏ 保存済みカードを再編集":"自分だけの奇跡をつくろう"}</small></h2></div><div class="forge-header-actions"><button class="secondary small" data-action="source" type="button">🔎 既存カードのコード</button><button class="secondary small" data-api-guide="open" type="button">📚 関数図鑑</button><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div></div>
@@ -413,7 +452,7 @@ document.addEventListener('input',ev=>{
  }
  if(ev.target?.id?.startsWith('edit-'))updatePreview();
 });
-document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
+document.addEventListener('change',ev=>{if(modal==='source'&&ev.target?.id==='source-card-select'){sourceSelected=Number(ev.target.value)||0;updateSourceBrowser();return;}if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
 document.addEventListener('change',async ev=>{
  if(ev.target?.id!=='deck-file-input')return;
  try{await importDeckFiles(ev.target.files);}catch(err){toast('読み込み失敗：'+err.message,true);}
@@ -431,6 +470,8 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  try{
  switch(a){case 'create':case 'join':case 'solo':case 'classroom':joinGame(a);break;
  case 'import-deck':$('deck-file-input')?.click();break;case 'export-deck':exportEncryptedDeck().catch(err=>toast(err.message,true));break;case 'export-card':exportSingleCard(id).catch(err=>toast(err.message,true));break;case 'publish-all':publishAllCards();break;case 'invite':copyInvite();break;case 'leave':leave();break;
+ case 'source':openSourceBrowser();break;
+ case 'source-copy':{const value=$('source-code')?.textContent||'';navigator.clipboard?.writeText(value).then(()=>toast('コードをコピーしました')).catch(()=>toast('コピーできませんでした',true));break;}
  case 'editor':openEditor();break;case 'new-card':if(modal==='editor')getDraft();openEditor();break;case 'edit-saved':if(modal==='editor')getDraft();openEditor(id);break;case 'edit-published':if(modal==='editor')getDraft();openEditor(null,id);break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
  case 'end-class':if(window.confirm('クラスの対戦を全員終了します。元には戻せません。続けますか？'))act('endClass');break;
  case 'start':act('start');break;case 'reset':act('reset');break;case 'add-bot':act('bot',{action:'add'});break;case 'remove-bot':act('bot',{action:'remove'});break;
