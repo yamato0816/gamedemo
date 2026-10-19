@@ -531,7 +531,7 @@ function crPlayer(id,name,bot){return {id,name,bot:!!bot,hp:40,mp:16,gold:16,shi
 function crView(r,p){return {room:r.code,phase:r.phase,host:r.host,round:r.round,deadline:r.deadline||null,
   turn:r.phase==='game'?r.players[r.turnIndex].id:null,pending:r.pending?{from:r.pending.from,to:r.pending.to,damage:r.pending.damage,element:r.pending.element,kind:r.pending.kind,pierce:r.pending.pierce||0,cards:(r.pending.cards||[]).map(c=>({name:c.name,emoji:c.emoji,type:c.type,power:c.power}))}:null,
   winner:r.winner,phenomenon:r.phenomenon||null,visualEvent:r.visualEvent||null,lastElimination:r.lastElimination||null,scriptFeedback:r.scriptFeedback||null,customPopups:r.customPopups||[],popupBusyUntil:crPopupBusy(r)?r.popupBusyUntil:0,
-  classroom:!!r.classroom,players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
+  classroom:!!r.classroom,classroomEnded:!!r.classroomEnded,players:r.players.map(x=>({id:x.id,name:x.name,bot:!!x.bot,hp:x.hp,mp:x.mp,gold:x.gold,shield:x.shield,guardian:x.guardian,shopUsed:!!x.shopUsed,
     poison:x.status.poison,burn:x.status.burn,weak:x.status.weak,freeze:x.status.freeze,curse:x.status.curse,handCount:x.hand.length,online:!!x.bot||Date.now()-(x.lastSeen||0)<30000})),
   me:p.id,hand:p.hand,cards:r.cards,customCards:r.cards,log:r.log.slice(0,14),baseCardCount:CR_BASE.length};}
 function crBot(r){
@@ -614,11 +614,17 @@ function crShop(r,p,item,targetId){
   crLog(r,'🪙 '+p.name+' は ¥'+offer.cost+' で「'+offer.name+'」を購入');
   crVisual(r,'shop','購入！',p.name+'｜'+offer.name+' ¥'+offer.cost,offer.icon,item);
 }
-function crNewRoom(code,token,name){return {code,phase:'lobby',classroom:false,players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
+function crNewRoom(code,token,name){return {code,phase:'lobby',classroom:false,classroomEnded:false,players:[crPlayer(token,name,false)],host:token,visualSeq:0,visualEvent:null,eliminationSeq:0,lastElimination:null,round:1,
   turnIndex:0,pending:null,deadline:0,winner:null,phenomenon:null,cards:[],log:[],customPopups:[],customPopupSeq:0,popupBusyUntil:0,popupDeferredNext:false,popupDeferredWinner:false,created:Date.now(),updated:Date.now()};}
 function crApply(r,msg,p){
-  if(crPopupBusy(r)&&msg.type!=='leave')throw Error('演出中です。ポップが終わるまで操作をお待ちください');
-  if(msg.type==='classroom'){
+  if(crPopupBusy(r)&&!['leave','endClass'].includes(msg.type))throw Error('演出中です。ポップが終わるまで操作をお待ちください');
+  if(r.classroomEnded&&msg.type!=='leave')throw Error('先生が授業ルームを終了しました');
+  if(msg.type==='endClass'){
+    if(!r.classroom||p.id!==r.host)throw Error('教室ルームの終了は先生のみ操作できます');
+    r.classroomEnded=true;r.phase='finished';r.winner=null;r.pending=null;
+    r.popupBusyUntil=0;r.popupDeferredNext=false;r.popupDeferredWinner=false;
+    crLog(r,'🏫 先生が授業ルームを終了しました');
+  }else if(msg.type==='classroom'){
     if(p.id!==r.host||r.phase!=='lobby')throw Error('クラス管理の設定はロビーの先生だけが変更できます');
     r.classroom=!!msg.enabled;
     crLog(r,r.classroom?'🏫 先生の承認制ルームを有効にしました':'🏫 通常ルームに戻しました');
