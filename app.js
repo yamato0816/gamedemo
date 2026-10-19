@@ -121,7 +121,7 @@ async function joinGame(kind){name=($('player-name')?.value||name||'旅人').tri
  }else{
   if(isSolo())swapTransport(false);
   if(kind==='create'||kind==='classroom'){
-   const code=await net.create(name);
+   const code=await net.create(kind==='classroom'?'先生':name);
    if(kind==='classroom')act('classroom',{enabled:true});
    history.replaceState(null,'',location.pathname+'?room='+code);
    toast(kind==='classroom'?'🏫 先生の承認制ルームを作成しました':'部屋ができました。招待リンクを共有できます！');
