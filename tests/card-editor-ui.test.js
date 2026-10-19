@@ -32,6 +32,9 @@ const context={
  location:{search:'',pathname:'/',origin:'https://example.com'},history:{replaceState(){}},
  setInterval:()=>1,clearInterval:()=>{},setTimeout:()=>1,clearTimeout:()=>{}
 };
+// Mirror browser window/globalThis so root.CardForge is visible as a global.
+Object.assign(context,context.window);
+context.window=context;
 vm.createContext(context);
 for(const file of ['card-forge-model.js','pycards.js','engine.js','app.js'])
  vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),context,{filename:file});
