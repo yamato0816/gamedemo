@@ -43,9 +43,9 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   GameEngine.join(r,b,'実名を含む入力');
   assert.match(r.players[1].name,/^生徒\d+$/);
   assert.throws(()=>GameEngine.apply(r,b,{type:'publish',card}),/先生/);
-  GameEngine.apply(r,a,{type:'bulkPublish',cards:[{...card,sourceLocalId:'1'}]});
+  GameEngine.apply(r,a,{type:'bulkPublish',cards:[{...card,sourceLocalId:'student-001'}]});
   assert.equal(r.cards.length,1);
-  GameEngine.apply(r,a,{type:'bulkPublish',cards:[{...card,sourceLocalId:'1',power:9}]});
+  GameEngine.apply(r,a,{type:'bulkPublish',cards:[{...card,sourceLocalId:'student-001',power:9}]});
   assert.equal(r.cards.length,1);
   assert.equal(r.cards[0].power,9);
   console.log('PASS: ZIP/JSON deck round-trip, solo CPUs, moderation and batch updates');
