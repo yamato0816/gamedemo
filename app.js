@@ -200,7 +200,6 @@ function getDraft(){
  const dirty=$('forge-dirty');if(dirty)dirty.hidden=false;
  return draft;
 }
-function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><div class="preview-top"><span>✦ ${TYPE[draft.type][0]}</span><span>${e(ELEMENT[draft.element]||'無')}属性</span></div><div class="preview-emoji">${e(draft.emoji||'✨')}</div><h2>${e(draft.name||'新しいカード')}</h2><p>${e(draft.description||'あなただけのカードを創造しよう。')}</p><div class="preview-bottom"><b>威力 ${Number(draft.power)||0}</b><b>コスト ${Number(draft.cost)||0} ${draft.resource==='gold'?'G':'MP'}</b></div></div>`;}
 const FX={attack:[['normal','通常'],['drain','HP吸収'],['poison','毒'],['burn','炎上'],['pierce','防御貫通'],['wild','ギャンブル'],['freeze','凍結'],['chain','連鎖攻撃'],['double_hit','追撃'],['siphon','MP強奪'],['guard_hunt','防御札の枚数×威力']],defense:[['normal','通常'],['reflect','等倍反射'],['reflect_full','全反射'],['reflect_double','2倍反射'],['redirect','ランダム転送'],['scatter','攻撃分散'],['nullify','完全無効'],['absorb','魔力吸収'],['counter','反撃'],['mana','MP回復']],magic:[['blast','攻撃魔法'],['drain','HP吸収魔法'],['heal','回復'],['poison','毒'],['freeze','凍結'],['curse','呪い'],['mana','MP補助'],['swap_hp','HP交換'],['mass_poison','全体毒'],['steal_mp','MP強奪'],['scramble','手札一斉交換']],item:[['heal','回復'],['mana','MP回復'],['gold','お金増加'],['draw','カード補充'],['cleanse','浄化'],['lottery','くじ']],guardian:[['sprite','妖精'],['phoenix','不死鳥'],['turtle','玄武'],['storm','雷神'],['muse','月の女神']],omen:[['random','ランダム'],['blessing','祝福'],['meteor','流星雨'],['exchange','資源交換']]};
 const input=(id,label,value,kind='text',opts={})=>`<label class="forge-field"><span>${label}</span><input id="edit-${id}" type="${kind}" ${opts.max?'max="'+opts.max+'"':''} ${kind==='number'?'min="0"':''} value="${e(value)}" ${opts.maxLength?'maxlength="'+opts.maxLength+'"':''}/></label>`;
 function select(id,label,arr,val){return `<label class="forge-field"><span>${label}</span><select id="edit-${id}">${arr.map(([v,t])=>`<option value="${e(v)}" ${v===val?'selected':''}>${e(t)}</option>`).join('')}</select></label>`;}
@@ -222,7 +221,7 @@ function renderModal(){window.ForgeMonaco?.dispose();document.body?.classList?.t
   const entries=sourceEntries();
   parent.innerHTML=`<div class="modal-backdrop"><section class="paper modal edu-source-modal" role="dialog" aria-modal="true" aria-label="カードコード図鑑">
    <div class="modal-title"><h2>🔎 カードコード図鑑</h2><button class="icon-button" data-action="close" aria-label="閉じる">×</button></div>
-   <p>基本カードの実際のJavaScript処理と、自作カードのPython風コードを読み比べられます。閲覧専用です。</p>
+   <p>基本カードも、自作工房で使えるPython風コードとして確認できます。サンプルをコピーして改造してみましょう。</p>
    <label class="forge-field"><span>カードを選択</span><select id="source-card-select">${entries.map((x,i)=>`<option value="${i}">${e(x.card.emoji||'🃏')} ${e(x.card.name)}（${x.origin==='base'?'基本':'自作'}）</option>`).join('')}</select></label>
    <p id="source-detail" class="edu-source-detail"></p>
    <h3>カードの設定・スクリプト</h3><pre id="source-code" class="edu-source-code"></pre>
@@ -300,7 +299,7 @@ function testCardCode(){
  if(editorMode==='form'){
   try{
    const result=ForgeFormTest.run(draft);
-   out.textContent=result.lines.join('\\n');
+   out.textContent=result.lines.join('\n');
    out.className='code-diagnostic valid';
    $('code-feedback').textContent='✓ フォームの設定でゲーム内テストが成功しました。コードエディタの内容は使用していません。';
    $('code-feedback').className='code-diagnostic valid';
