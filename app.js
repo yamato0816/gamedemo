@@ -27,7 +27,7 @@ const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d;}catch{retu
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 let name=load('cr3-name',''),custom=load('cr3-cards',[]),state=null,chosen=new Set(),target=null,modal='',draft={...initial},draftCode=SAMPLE;
 let editorMode='form',editingCardId=null,editingPublishedId=null;
-let forgeApiVisible=false,forgeTerminalHidden=true;
+let forgeApiVisible=true,forgeTerminalHidden=false;
 function editorDraftKey(){return editingPublishedId?'cr3-editor-draft-published-'+editingPublishedId:editingCardId?'cr3-editor-draft-edit-'+editingCardId:'cr3-editor-draft';}
 let pending=false,showRules=false;let timer=null,lastViewHash='';
 let sourceSelected=0,sourceCounter=0;
@@ -166,7 +166,7 @@ function openEditor(localId=null,publishedId=null){
  draft=CardForge.editable(saved?.data||stored||{...initial,script:''},initial);
  draftCode=saved?.code??draft.script;
  editorMode=saved?.mode==='code'||saved?.mode==='form'?saved.mode:((stored&&draftCode.trim())?'code':'form');
- modal='editor';forgeApiVisible=false;forgeTerminalHidden=true;renderModal();
+ modal='editor';forgeApiVisible=true;forgeTerminalHidden=false;renderModal();
 }
 function savedCardsInForge(){
  return `<details class="forge-saved-library" open><summary>📚 保存済みのカード <b>${custom.length}枚</b><span>${editingPublishedId?'公開カードを再編集中':editingCardId?'既存カードを編集中':'タップして再編集'}</span></summary><div class="forge-saved-list">
@@ -211,21 +211,11 @@ function openSourceBrowser(){
 function sourceEntries(){return CardSourceViewer.entries(custom,state?.customCards||[]);}
 async function updateSourceBrowser(){
  const id=++sourceCounter, entry=sourceEntries()[sourceSelected];
- const head=$('source-detail'),readout=$('source-code'),engine=$('source-engine'),frame=$('source-engine-frame');
- if(!head||!readout||!engine||!frame||!entry)return;
+ const head=$('source-detail'),readout=$('source-code');
+ if(!head||!readout||!entry)return;
  const {card,origin}=entry,info=CardSourceViewer.summary(card,origin);
  head.textContent=(card.emoji||'🃏')+' '+card.name+' · '+(TYPE[card.type]?.[0]||card.type)+' · '+info.label;
- readout.textContent=info.code;engine.textContent='';frame.hidden=true;
- if(origin==='base'){
-  frame.hidden=false;engine.textContent='エンジンの実コードを読み込み中…';
-  try{
-   const source=await CardSourceViewer.actualImplementation(card);
-   if(id!==sourceCounter)return;
-   engine.textContent=source?.code||'対応する実装が見つかりません';
-  }catch(err){
-   if(id===sourceCounter)engine.textContent='実コードを読み込めませんでした：'+err.message;
-  }
- }
+ readout.textContent=info.code;
 }
 function renderModal(){window.ForgeMonaco?.dispose();document.body?.classList?.toggle('forge-open',modal==='editor');const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
  if(modal==='source'){
@@ -236,9 +226,7 @@ function renderModal(){window.ForgeMonaco?.dispose();document.body?.classList?.t
    <label class="forge-field"><span>カードを選択</span><select id="source-card-select">${entries.map((x,i)=>`<option value="${i}">${e(x.card.emoji||'🃏')} ${e(x.card.name)}（${x.origin==='base'?'基本':'自作'}）</option>`).join('')}</select></label>
    <p id="source-detail" class="edu-source-detail"></p>
    <h3>カードの設定・スクリプト</h3><pre id="source-code" class="edu-source-code"></pre>
-   <div id="source-engine-frame" hidden><h3>実際のゲームエンジンの処理（engine.js）</h3>
-    <p>複数の基本カードで共用している処理です。上の参考コードと同じものではありません。</p>
-    <pre id="source-engine" class="edu-source-code"></pre></div>
+   <p class="edu-source-hint">ここに表示されるコードはカード工房で扱えるPython風形式です。基本効果は card.effect などで再現します。</p>
    <div class="row-actions"><button class="secondary" data-action="source-copy">📋 上のコードをコピー</button><button class="secondary" data-action="close">閉じる</button></div>
   </section></div>`;
   updateSourceBrowser();return;
@@ -255,18 +243,18 @@ function renderModal(){window.ForgeMonaco?.dispose();document.body?.classList?.t
   <button data-action="forge-output-toggle" type="button" title="テスト結果を開閉" aria-label="テスト結果を開閉">▥</button>
   <button data-action="source" type="button" title="カードコード図鑑" aria-label="カードコード図鑑">⌘</button>
  </nav>
- <aside class="forge-explorer" aria-label="カード一覧"><div class="forge-explorer-title">EXPLORER <button data-action="forge-explorer-toggle" title="閉じる" aria-label="カード一覧を閉じる" type="button">×</button></div>${savedCardsInForge()}<div class="forge-explorer-help"><button class="secondary small" type="button" data-action="source">🔎 既存カードのソースを見る</button><button class="secondary small" type="button" data-action="forge-api-pane">📚 関数一覧を見る</button><button class="secondary small" type="button" data-api-guide="open">📖 詳細な関数図鑑を開く</button><p>Ctrl+S で保存 / Ctrl+Enter でテスト<br>コードの変更は自動で下書きに保存されます。</p></div></aside><div class="forge-left" id="forge-form-panel" role="tabpanel"><div class="forge-inspector-control"><b>⚙ CARD SETTINGS</b><button data-action="forge-inspector-toggle" type="button" title="閉じる" aria-label="カード設定を閉じる">×</button></div><div class="forge-art"><div id="forge-preview">${editorCard()}</div></div><div class="form-block"><h3>カードの基本設定</h3><div class="two-col">${input('name','カード名',draft.name,'text',{maxLength:64})}${input('emoji','アイコン（絵文字）',draft.emoji,'text',{maxLength:16})}</div>
+ <aside class="forge-explorer" aria-label="カード一覧"><div class="forge-explorer-title">EXPLORER <button data-action="forge-explorer-toggle" title="閉じる" aria-label="カード一覧を閉じる" type="button">×</button></div>${savedCardsInForge()}<div class="forge-explorer-help"><button class="secondary small" type="button" data-action="source">🔎 既存カードのソースを見る</button><button class="secondary small" type="button" data-action="forge-api-pane">📚 関数一覧を見る</button><button class="secondary small" type="button" data-api-guide="open">📖 詳細な関数図鑑を開く</button><p>Ctrl+S で保存 / Ctrl+Enter でテスト<br>コードの変更は自動で下書きに保存されます。</p></div></aside><div class="forge-left" id="forge-form-panel" role="tabpanel"><div class="forge-inspector-control"><b>⚙ CARD SETTINGS</b><button data-action="forge-inspector-toggle" type="button" title="閉じる" aria-label="カード設定を閉じる">×</button></div><div class="form-block"><h3>カードの基本設定</h3><div class="two-col">${input('name','カード名',draft.name,'text',{maxLength:64})}${input('emoji','アイコン（絵文字）',draft.emoji,'text',{maxLength:16})}</div>
  <div class="two-col">${select('type','カードの種類',Object.entries(TYPE).map(([k,v])=>[k,v[0]]),draft.type)}${select('effect','基本効果',FX[draft.type],draft.effect)}</div>
  <div class="three-col">${input('power','威力（上限なし）',draft.power,'number')}${input('cost','消費MP',draft.cost,'number')}${input('weight','出現頻度',draft.weight,'number')}</div>
  ${select('element','属性',Object.entries(ELEMENT),draft.element)}${select('resource','コストの支払い方法',[['mp','MPを消費'],['gold','お金を消費']],draft.resource)}<label class="forge-field"><span>カードの説明</span><textarea id="edit-description" maxlength="8000" rows="4" placeholder="このカードの効果を自由に説明">${e(draft.description)}</textarea></label>
- </div></div><div class="forge-right" id="forge-code-panel" role="tabpanel"><div class="code-title"><div><span class="python-chip">🐍 Python風スクリプト</span><h3>効果プログラム（任意）</h3></div><button class="secondary small" data-action="validate">✓ 構文チェック</button><button class="primary small" data-action="test-code">🧪 実行テスト</button><button class="secondary small" data-action="preview-popup">🎬 ポップ見本</button></div>
+ </div></div><div class="forge-right" id="forge-code-panel" role="tabpanel"><div class="code-title"><div><span class="python-chip">🐍 Python風スクリプト</span><h3>効果プログラム（任意）</h3></div><button class="secondary small" data-action="validate">✓ 構文チェック</button><button class="primary small" data-action="test-code">🧪 実行テスト</button></div>
  <details class="forge-snippets"><summary>⚡ テンプレート・入力補助を開く</summary><div class="forge-mobile-actions"><button class="secondary small" data-action="code-only">📝 完全なカード例</button><button class="secondary small" data-action="form-to-code">🧩 フォームからコード生成</button><button class="secondary small" data-action="snippet" data-id="shieldhunt">🎯 盾狩り</button><button class="secondary small" data-action="snippet" data-id="counter">↩️ 反撃</button><button class="secondary small" data-action="snippet" data-id="popup">🎬 ポップ</button><button class="secondary small" data-action="snippet" data-id="jackpot">🌈 パチンコ</button></div><div class="snippet-row"><span>テンプレート：</span><button data-action="snippet" data-id="lifesteal">吸血</button><button data-action="snippet" data-id="gamble">ギャンブル</button><button data-action="snippet" data-id="guardian">守護神</button><button data-action="snippet" data-id="counter">反撃</button><button data-action="snippet" data-id="shieldhunt">盾狩り</button><button data-action="snippet" data-id="superguard">超防御</button><button data-action="snippet" data-id="popup">🎬 ポップ</button><button data-action="snippet" data-id="jackpot">🌈 パチンコ演出</button><button data-action="snippet" data-id="treasury">💰 黄金</button><button data-action="snippet" data-id="shieldwall">🛡 強化</button><button data-action="snippet" data-id="judgment">⚖️ 審判</button></div>
  <div class="forge-quick-keys" aria-label="コード入力補助"><button data-action="insert" data-code="    ">⇥4字</button><button data-action="insert" data-code=":">:</button><button data-action="insert" data-code="()">()</button><button data-action="insert" data-code="&quot;&quot;">“”</button><button data-action="insert" data-code="def on_play():&#10;    ">▶ on_play</button><button data-action="insert" data-code="def on_guard():&#10;    ">🛡 on_guard</button><button data-action="insert" data-code="for item in target.hand:&#10;    ">♻ for</button></div></details><div class="code-window"><div class="code-toolbar"><span class="three-dots"><i></i><i></i><i></i></span><b>card_effect.py</b><button class="code-fallback-toggle" data-action="code-lightweight" title="スマホや低速回線では軽量入力に変更できます">軽量入力</button><span id="code-editor-status" aria-live="polite">Monaco Editor / Python補完対応</span></div><div class="code-region"><div id="code-lines" class="line-numbers"></div><pre id="code-highlight" aria-hidden="true"></pre><textarea id="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Python効果プログラム">${e(draftCode)}</textarea><div id="monaco-editor" aria-label="Monaco Pythonエディター"></div></div></div>
  </div><aside class="forge-help-pane" aria-label="カードAPIリファレンス"><div class="forge-inspector-heading"><strong>API REFERENCE</strong><button class="secondary small" type="button" data-action="forge-api-pane">✕</button></div>
- <div class="api-heading">オブジェクト・関数ガイド</div><div class="forge-help-open"><b>📘 card / self / target / players</b><p>card.name, card.type, card.power, card.cost, self.hp, target.mp, target.hand、item.type, item.power などを参照できます。</p><p>for item in target.hand: で全札を走査できます。len(target.hand) は枚数、count_cards(target.hand, "defense") は防御札枚数、sum_power(target.hand, "defense") は防御札の総威力です。</p><p>API一覧：<a href="CARD_API.md" target="_blank" rel="noopener">CARD_API.md</a></p></div><div class="api-heading">使用できる関数 <small>検索してタップすると挿入</small></div><input id="forge-api-search" class="forge-api-search" type="search" autocomplete="off" placeholder="関数を検索：Gold、HP、手札、popup…" aria-label="カード関数を検索"><div class="api-pills" id="forge-api-pills">${Object.entries(PyCards.docs||{}).map(([key,[params,description]])=>`<button data-action="insert" data-search="${e(key+' '+description+' '+params)}" data-code="${e(key+'('+params+')')}" title="${e(description)}"><b>${e(key)}</b><small>${e(description)}</small></button>`).join('')}</div>
+ <div class="forge-dictionary"><div class="api-heading">オブジェクト・関数ガイド</div><div class="forge-help-open"><b>📘 card / self / target / players</b><p>card.name, card.type, card.power, card.cost, self.hp, target.mp, target.hand、item.type, item.power などを参照できます。</p><p>for item in target.hand: で全札を走査できます。len(target.hand) は枚数、count_cards(target.hand, "defense") は防御札枚数、sum_power(target.hand, "defense") は防御札の総威力です。</p><p>API一覧：<a href="CARD_API.md" target="_blank" rel="noopener">CARD_API.md</a></p></div><div class="api-heading">使用できる関数 <small>検索してタップすると挿入</small></div><input id="forge-api-search" class="forge-api-search" type="search" autocomplete="off" placeholder="関数を検索：Gold、HP、手札、popup…" aria-label="カード関数を検索"><div class="api-pills" id="forge-api-pills">${Object.entries(PyCards.docs||{}).map(([key,[params,description]])=>`<button data-action="insert" data-search="${e(key+' '+description+' '+params)}" data-code="${e(key+'('+params+')')}" title="${e(description)}"><b>${e(key)}</b><small>${e(description)}</small></button>`).join('')}</div>
  <details class="forge-help"><summary>関数の説明・Pythonの対応範囲</summary><p>コード冒頭の <code>card.name</code> / <code>card.description</code> / <code>card.cost</code> などですべて指定できます。使えるのは <code>def on_play():</code>、<code>on_hit()</code>、<code>on_defend()</code>、<code>on_block()</code>、<code>on_guard()</code>、<code>on_turn_start()</code>。変数、四則演算、<code>if / elif / else</code>、比較、<code>and / or / not</code>、<code>min / max / int / round</code> などが使えます。<code>damage_dealt()</code> は防御やバリア適用後の実ダメージ。<code>damage_taken()</code> は防御時に受けた実ダメージです。<code>target_defense_cards()</code>で相手が持つ防御札の枚数を取得できます。<code>boost_attack(n)</code>は攻撃の合計威力を加算し、<code>on_guard()</code>中の<code>boost_defense(n)</code>は防御値を加算します。攻撃・防御札は手札にある枚数だけ重ねられます。対象は <code>self</code> / <code>target</code> / <code>everyone</code> / <code>all_enemies</code>。カード配列用のforループに対応。import、無制限ループ、ファイル操作は非対応です。</p></details>
- </aside></div><section class="forge-terminal" id="forge-terminal"><div class="forge-terminal-heading"><strong>▤ 実行結果</strong><span>TEST OUTPUT · DIAGNOSTICS</span><button type="button" data-action="forge-output-toggle" class="forge-terminal-close" aria-label="結果パネルを閉じる">▾</button></div><div class="forge-terminal-content">
- <div class="code-diagnostic" id="code-feedback">✦ 検証またはテストを実行すると、ここに結果が表示されます。</div><pre id="code-test-output" class="code-diagnostic" aria-live="polite" style="display:none;white-space:pre-wrap;overflow:auto;font:12px/1.5 monospace"></pre></div></section>
+ </div><section class="forge-terminal" id="forge-terminal"><div class="forge-terminal-heading"><strong>▤ 実行結果</strong><span>TEST OUTPUT · DIAGNOSTICS</span><button type="button" data-action="forge-clear-output" class="forge-terminal-close" aria-label="実行ログを消去">消去</button></div><div class="forge-terminal-content">
+ <div class="code-diagnostic" id="code-feedback">✦ 検証またはテストを実行すると、ここに結果が表示されます。</div><pre id="code-test-output" class="code-diagnostic" aria-live="polite" style="display:none;white-space:pre-wrap;overflow:auto;font:12px/1.5 monospace"></pre></div></section></aside></div>
  <div class="forge-footer"><p><span class="forge-status-dot"></span> Python風カードスクリプト <span>·</span> 関数・条件分岐・変数をサポート</p><div><span>UTF-8</span><span>Spaces: 4</span><span>カード工房</span></div></div>
  </section></div>`;initCode();}
 function syntaxHighlight(src){return e(src).replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g,'<span class="sy-string">$1</span>').replace(/\b(def|if|elif|else|and|or|not|True|False|None)\b/g,'<span class="sy-keyword">$1</span>').replace(/\b(on_play|on_hit|on_defend|on_block|on_guard|on_turn_start|target_defense_cards|my_defense_cards|incoming_damage|boost_attack|boost_defense|damage_dealt|damage_taken|heal|damage|shield|status|summon|chance|randint|min|max|my_hp|target_hp|resource)\b/g,'<span class="sy-call">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="sy-num">$1</span>');}
@@ -302,13 +290,29 @@ function initCode(){const area=$('code-input'),pre=$('code-highlight'),lines=$('
   }
  });
  sync();if(editorMode==='code')setEditorMode('code');}
-function validateCode(show=true){if(show)showForgeOutput();try{const source=codeText();const ast=PyCards.compile(source);const message=`✓ 構文OK！ ${Object.keys(ast.handlers).map(k=>'on_'+k).join(' / ')} が登録されます。設定項目：${Object.keys(ast.meta||{}).join(' / ')||'フォームから取得'}`;
+function validateCode(show=true){if(show)showForgeOutput();if(editorMode==='form'){try{const result=GameEngine.card(CardForge.payload(getDraft(),'form',''),'構文テスト');$('code-feedback').textContent='✓ フォームの設定は有効です：'+result.name+' / '+result.effect;$('code-feedback').className='code-diagnostic valid';return result;}catch(err){$('code-feedback').textContent='⚠ '+err.message;$('code-feedback').className='code-diagnostic invalid';if(show)toast(err.message,true);return null;}}try{const source=codeText();const ast=PyCards.compile(source);const message=`✓ 構文OK！ ${Object.keys(ast.handlers).map(k=>'on_'+k).join(' / ')} が登録されます。設定項目：${Object.keys(ast.meta||{}).join(' / ')||'フォームから取得'}`;
  $('code-feedback').textContent=message;$('code-feedback').className='code-diagnostic valid';if(show)toast(message);return ast;
  }catch(err){$('code-feedback').textContent='⚠ '+err.message;$('code-feedback').className='code-diagnostic invalid';if(show)toast(err.message,true);return null;}}
 function testCardCode(){
  showForgeOutput();getDraft();
  const out=$('code-test-output');if(!out)return;
  out.style.display='block';
+ if(editorMode==='form'){
+  try{
+   const result=ForgeFormTest.run(draft);
+   out.textContent=result.lines.join('\\n');
+   out.className='code-diagnostic valid';
+   $('code-feedback').textContent='✓ フォームの設定でゲーム内テストが成功しました。コードエディタの内容は使用していません。';
+   $('code-feedback').className='code-diagnostic valid';
+   if(result.visual)window.ChaosPopups?.preview(result.visual.title||'フォームテスト',result.visual.detail||result.card.name,result.visual.icon||'✨',result.visual.variant||'info',1800);
+  }catch(err){
+   out.textContent='✕ フォーム実行エラー：'+String(err.message||err);
+   out.className='code-diagnostic invalid';
+   $('code-feedback').textContent='⚠ フォームの設定を確認してください。';
+   $('code-feedback').className='code-diagnostic invalid';
+  }
+  return;
+ }
  const script=draft.script.trim();
  if(!script){out.textContent='コードなし：フォームの基本効果だけを持つカードです。';return;}
  try{
@@ -446,7 +450,7 @@ function publishAllCards(){
  act('bulkPublish',{cards});
 }
 function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card,sourceLocalId:card.localId};delete data.localId;act('publish',{card:data});}
-function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}$('forge-preview').innerHTML=editorCard();}
+function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}}
 function editCodeInsert(str){
  if(window.ForgeMonaco){window.ForgeMonaco.insert(str);return;}
  const el=$('code-input');if(!el)return;
@@ -479,9 +483,9 @@ document.addEventListener('drop',async ev=>{
  ev.preventDefault();
  try{await importDeckFiles(ev.dataTransfer.files);}catch(err){toast('読み込み失敗：'+err.message,true);}
 });
-function showForgeOutput(){forgeTerminalHidden=false;const page=document.querySelector('.forge-ide');page?.classList.remove('terminal-hidden');window.ForgeMonaco?.layout();}
-function toggleForgeOutput(){forgeTerminalHidden=!forgeTerminalHidden;document.querySelector('.forge-ide')?.classList.toggle('terminal-hidden',forgeTerminalHidden);window.ForgeMonaco?.layout();}
-function toggleForgeApi(){forgeApiVisible=!forgeApiVisible;const page=document.querySelector('.forge-ide');page?.classList.toggle('show-api',forgeApiVisible);if(forgeApiVisible)page?.classList.remove('show-inspector','show-explorer');window.ForgeMonaco?.layout();}
+function showForgeOutput(){const body=document.querySelector('.forge-terminal-content');if(body)body.scrollTop=body.scrollHeight;}
+function toggleForgeOutput(){document.querySelector('.forge-terminal')?.scrollIntoView?.({block:'nearest'});}
+function toggleForgeApi(){document.querySelector('.forge-dictionary')?.scrollIntoView?.({block:'nearest'});}
 function toggleForgeExplorer(){const page=document.querySelector('.forge-ide');const open=!page?.classList.contains('show-explorer');page?.classList.toggle('show-explorer',open);if(open){page?.classList.remove('show-inspector','show-api');forgeApiVisible=false;}window.ForgeMonaco?.layout();}
 function toggleForgeInspector(){const page=document.querySelector('.forge-ide');page?.classList.toggle('show-inspector');page?.classList.remove('show-api','show-explorer');forgeApiVisible=false;window.ForgeMonaco?.layout();}
 document.addEventListener('keydown',ev=>{
@@ -491,7 +495,7 @@ document.addEventListener('keydown',ev=>{
 });
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
- switch(a){case 'forge-explorer-toggle':toggleForgeExplorer();break;case 'forge-inspector-toggle':toggleForgeInspector();break;case 'forge-api-pane':toggleForgeApi();break;case 'forge-output-toggle':toggleForgeOutput();break;case 'create':case 'join':case 'solo':case 'classroom':joinGame(a);break;
+ switch(a){case 'forge-clear-output':{const out=$('code-test-output'),feedback=$('code-feedback');if(out){out.textContent='';out.style.display='none';}if(feedback){feedback.textContent='✦ ここにテスト結果を表示します。';feedback.className='code-diagnostic';}break;}case 'forge-explorer-toggle':toggleForgeExplorer();break;case 'forge-inspector-toggle':toggleForgeInspector();break;case 'forge-api-pane':toggleForgeApi();break;case 'forge-output-toggle':toggleForgeOutput();break;case 'create':case 'join':case 'solo':case 'classroom':joinGame(a);break;
  case 'import-deck':$('deck-file-input')?.click();break;case 'export-deck':exportEncryptedDeck().catch(err=>toast(err.message,true));break;case 'export-card':exportSingleCard(id).catch(err=>toast(err.message,true));break;case 'publish-all':publishAllCards();break;case 'invite':copyInvite();break;case 'leave':leave();break;
  case 'source':openSourceBrowser();break;
  case 'source-copy':{const value=$('source-code')?.textContent||'';navigator.clipboard?.writeText(value).then(()=>toast('コードをコピーしました')).catch(()=>toast('コピーできませんでした',true));break;}
@@ -510,7 +514,7 @@ document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action
  case 'code-only':setEditorMode('code');setCodeText(FULL_CARD_TEMPLATE);toast('コードだけで名前・説明・コストまで指定できます');break;
  case 'mode-form':getDraft();setEditorMode('form');break;
  case 'mode-code':getDraft();setEditorMode('code');break;
- case 'code-lightweight':window.ForgeMonaco?.fallback();break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'preview-popup':window.ChaosPopups?.preview('オリジナル演出','ダメージ 100 / 追加Gold +500','⚡','gold');break;case 'save-card':saveCard();break;
+ case 'code-lightweight':window.ForgeMonaco?.fallback();break;case 'validate':validateCode();break;case 'test-code':testCardCode();break;case 'save-card':saveCard();break;
  case 'snippet':{
  getDraft();
  const current=codeText(),header=current.split(/^def on_/m)[0];
