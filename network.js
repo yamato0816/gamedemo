@@ -81,7 +81,7 @@ class Online{
     }
     if(!this.connections.has(conn.peer))return;
     if(msg.type!=='action'||!msg.action||typeof msg.action!=='object')return;
-    const a=msg.action;const actions=['publish','removeCard','bot','start','reset','leave','defend','attack','use','pray','trade','shop','pass'];
+    const a=msg.action;const actions=['endClass','classroom','bulkPublish','publish','removeCard','bot','start','reset','leave','defend','attack','use','pray','trade','shop','pass'];
     if(!actions.includes(a.type))return;
     try{
       const data=JSON.stringify(a);if(data.length>262144)throw Error('メッセージが大きすぎます');
