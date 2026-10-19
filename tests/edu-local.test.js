@@ -24,7 +24,7 @@ const context = vm.createContext({
   crypto, Blob, TextEncoder, TextDecoder, DecompressionStream, Response,
   Math, Date, console, setInterval, clearInterval
 });
-for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js']) {
+for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-card-crypto.js', 'edu-decks.js']) {
   vm.runInContext(fs.readFileSync(__dirname + '/../' + file, 'utf8'), context, { filename: file });
 }
 (async () => {
@@ -32,9 +32,10 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   const card = { name:'学習用の炎', type:'attack', effect:'normal', power:8, cost:1,
     resource:'mp', element:'fire', emoji:'🔥', weight:2, description:'条件分岐の練習',
     script:'def on_play():\n    if my_hp() < 20:\n        damage("target", 3)' };
-  const zip = EduDecks.archive([card]);
+  const password='strong-class-password-2026';
+  const zip = await EduDecks.archive([card],password);
   assert.equal(zip.type,'application/zip');
-  const imported = await EduDecks.readFiles([{name:'class.zip',size:zip.size,arrayBuffer:()=>zip.arrayBuffer()}]);
+  const imported = await EduDecks.readFiles([{name:'class.zip',size:zip.size,arrayBuffer:()=>zip.arrayBuffer()}],{password});
   assert.equal(imported.length,1);
   assert.equal(imported[0].name,card.name);
   assert.equal(imported[0].script,card.script);
@@ -46,7 +47,7 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   const packedCards=await EduDecks.readFiles([asFile('folder.zip',packedJson)]);
   assert.equal(packedCards.length,1,'Drive ZIP with compressed JSON imports correctly');
   const nestedZip=compressedZip('class/student01.zip',Buffer.from(await zip.arrayBuffer()));
-  const nestedCards=await EduDecks.readFiles([asFile('school-folder.zip',nestedZip)]);
+  const nestedCards=await EduDecks.readFiles([asFile('school-folder.zip',nestedZip)],{password});
   assert.equal(nestedCards.length,1,'Drive ZIP with student ZIP inside imports correctly');
 
   let snapshots = [],messages = [];
@@ -76,5 +77,5 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   assert.equal(r.classroomEnded,true);
   assert.equal(GameEngine.view(r,b).classroomEnded,true);
   assert.throws(()=>GameEngine.apply(r,a,{type:'start'}),/終了/);
-  console.log('PASS: ZIP/JSON deck round-trip, solo CPUs, moderation, batch updates and emergency end');
+  console.log('PASS: encrypted ZIP/JSON deck round-trip, solo CPUs, moderation, batch updates and emergency end');
 })().catch(e=>{console.error(e);process.exitCode=1;});
