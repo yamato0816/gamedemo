@@ -60,7 +60,7 @@
     a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
-  async function readZip(file) {
+  async function readZip(file, depth = 0, budget = { bytes: 0 }) {
     if (file.size > MAX_UNPACKED) throw Error('ZIPファイルが大きすぎます（上限8MB）');
     const bytes = new Uint8Array(await file.arrayBuffer()), view = new DataView(bytes.buffer);
     let end = -1;
@@ -81,7 +81,8 @@
       if (pos + 46 + nameLen + extraLen + commentLen > bytes.length) throw Error('ZIPのファイル名が不正です');
       const name = decoder.decode(bytes.subarray(pos + 46, pos + 46 + nameLen));
       pos += 46 + nameLen + extraLen + commentLen;
-      if (!name.endsWith('.json') || name.startsWith('__MACOSX/') || name.startsWith('.')) continue;
+      const isJson = /\.json$/i.test(name), isNested = depth === 0 && /\.zip$/i.test(name);
+      if ((!isJson && !isNested) || name.startsWith('__MACOSX/') || name.startsWith('.')) continue;
       if (flags & 1 || ![0, 8].includes(method)) throw Error('暗号化・非対応形式のZIPは読み込めません');
       if (plainSize > MAX_UNPACKED || (total += plainSize) > MAX_UNPACKED) throw Error('解凍後のサイズが大きすぎます');
       if (localOffset + 30 > bytes.length || u32(view, localOffset) !== 0x04034b50) throw Error('ZIP内のファイル位置が不正です');
@@ -94,26 +95,47 @@
         if (typeof DecompressionStream === 'undefined') throw Error('このブラウザーでは圧縮ZIPを解凍できません。Chrome/Edgeを使うかJSONファイルを読み込んでください');
         try {
           const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-          unpacked = new Uint8Array(await new Response(stream).arrayBuffer());
+          const reader = stream.getReader(), output = new Uint8Array(plainSize);
+          let written = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (written + value.length > plainSize) {
+              await reader.cancel();
+              throw Error('展開サイズが宣言値を超えています');
+            }
+            output.set(value, written); written += value.length;
+          }
+          unpacked = output.subarray(0, written);
         } catch { throw Error('ZIPの解凍に失敗しました。Chrome/Edgeまたは無圧縮ZIPを試してください'); }
       }
       if (unpacked.length !== plainSize || crc32(unpacked) !== u32(view, pos - (46 + nameLen + extraLen + commentLen) + 16)) {
         throw Error('ZIP内のファイルの整合性チェックに失敗しました');
       }
-      entries.push({ name, text: decoder.decode(unpacked) });
+      budget.bytes += unpacked.length;
+      if (budget.bytes > MAX_UNPACKED) throw Error('読み込み全体の展開サイズが8MBを超えました');
+      entries.push({ name, bytes: unpacked, isNested });
     }
-    const combined = entries.find(x => /(^|\/)chaos-relic-deck\.json$/i.test(x.name));
-    return combined ? [combined.text] : entries.map(x => x.text);
+    const combined = entries.find(x => !x.isNested && /(^|\/)chaos-relic-deck\.json$/i.test(x.name));
+    if (combined) return [decoder.decode(combined.bytes)];
+    const texts = [];
+    for (const entry of entries) {
+      if (entry.isNested) {
+        texts.push(...await readZip({ size: entry.bytes.length,
+          arrayBuffer: async () => entry.bytes.slice().buffer }, depth + 1, budget));
+      } else texts.push(decoder.decode(entry.bytes));
+    }
+    return texts;
   }
   async function readFiles(files) {
     const selected = Array.from(files || []);
     if (!selected.length) throw Error('ファイルを選択してください');
     if (selected.length > 100) throw Error('ファイルは一度に100件までです');
-    const texts = [];
+    const texts = [], budget = { bytes: 0 };
     for (const f of selected) {
-      if (/\.zip$/i.test(f.name)) texts.push(...await readZip(f));
+      if (/\.zip$/i.test(f.name)) texts.push(...await readZip(f, 0, budget));
       else if (/\.json$/i.test(f.name)) {
-        if (f.size > MAX_UNPACKED) throw Error('JSONファイルが大きすぎます');
+        if ((budget.bytes += f.size) > MAX_UNPACKED) throw Error('JSONファイルが大きすぎます');
         texts.push(await f.text());
       } else throw Error('対応形式はZIPまたはJSONです：' + f.name);
     }
