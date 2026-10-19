@@ -29,6 +29,7 @@ let name=load('cr3-name',''),custom=load('cr3-cards',[]),state=null,chosen=new S
 let editorMode='form',editingCardId=null,editingPublishedId=null;
 function editorDraftKey(){return editingPublishedId?'cr3-editor-draft-published-'+editingPublishedId:editingCardId?'cr3-editor-draft-edit-'+editingCardId:'cr3-editor-draft';}
 let pending=false,showRules=false;let timer=null,lastViewHash='';
+let sourceSelected=0,sourceCounter=0;
 function toast(message,bad=false){const t=$('toast');t.textContent=message;t.className='visible'+(bad?' error':'');clearTimeout(timer);timer=setTimeout(()=>t.className='',3300);}
 let net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
 function swapTransport(solo) {
@@ -59,15 +60,18 @@ function playerItem(p,i){const targeting=p.id===target,canTarget=p.id!==state.me
 function deckTools() {
  const host=state&&state.me===state.host,canBatch=host&&state.phase==='lobby';
  return `<section class="deck-tools" id="deck-drop" aria-label="カードデッキの読み込みと出力">
-  <h3>📦 デッキ共有 <small>ログイン不要・ファイルは端末内で解析</small></h3>
-  <p>ZIP / JSONを読み込み、学校のDriveやファイルサーバーで共有できます。氏名はカードやファイル名に含めないでください。</p>
+  <h3>📦 カード提出・デッキ共有 <small>ログイン不要・ブラウザー内で暗号化</small></h3>
+  <p>生徒は保存済みのカードを1枚ずつ暗号化して提出。先生はDrive等からダウンロードしたZIPを一括読み込みできます。氏名はカード名・説明に含めないでください。</p>
   <div class="row-actions">
-   <button type="button" class="secondary small" data-action="import-deck">📂 ZIP・JSONを読み込む</button>
-   <button type="button" class="secondary small" data-action="export-deck">💾 保存済みカードをZIP出力（${custom.length}枚）</button>
+   <button type="button" class="secondary small" data-action="import-deck">📂 暗号化カード・ZIPを読み込む</button>
+   <button type="button" class="secondary small" data-action="export-deck">🔒 暗号化ZIPを出力（${custom.length}枚）</button>
    ${canBatch?`<button type="button" class="primary small" data-action="publish-all">📤 確認済みカードを一括公開</button>`:''}
   </div>
-  <input id="deck-file-input" type="file" accept=".zip,.json,application/zip,application/json" multiple hidden>
-  <small>ここにZIPをドロップしても読み込めます。授業利用前に内容を確認し、先生が公開してください。</small>
+  <details class="edu-card-submit"><summary>🎓 提出するカードを1枚選ぶ（${custom.length}枚）</summary>
+   ${custom.length?custom.map(card=>`<div class="edu-submit-row"><span>${e(card.emoji||'🃏')} ${e(card.name)}</span><button class="secondary small" type="button" data-action="export-card" data-id="${e(card.localId)}">🔒 この1枚を暗号化して出力</button></div>`).join(''):'<p>先にカード工房でカードを保存してください。</p>'}
+  </details>
+  <input id="deck-file-input" type="file" accept=".crcard,.zip,.json,application/zip,application/json" multiple hidden>
+  <small>ZIP・.crcardをここにドロップできます。先生と生徒は共通の12文字以上の提出パスワードを使います。暗号化は悪意あるコードの防止や作者認証の代わりにはなりません。</small>
  </section>`;
 }
 function landing(){const invited=new URLSearchParams(location.search).get('room')||'';return `<div class="landing-shell"><section class="welcome">
@@ -87,7 +91,7 @@ function lobby(){const room=state;return `<div class="lobby-head"><div><span cla
   <section class="paper"><div class="paper-title"><h2><span>✎</span> みんなの自作カード <small>${state.customCards.length}枚</small></h2><button class="secondary small" data-action="editor">＋ カードを作る</button></div>
    ${state.customCards.length?`<div class="shared-cards">${state.customCards.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>${e(c.author)} · ${e(TYPE[c.type][0])}</small></div>${c.owner===state.me?`<button data-action="edit-published" data-id="${e(c.id)}" class="small secondary">✏ 編集</button>`:''}${c.owner===state.me||state.host===state.me?`<button data-action="remove" data-id="${e(c.id)}" class="small danger" title="ロビーから削除">×</button>`:''}</div>`).join('')}</div>`:'<div class="empty"><strong>まだ自作カードはありません</strong><p>作ったカードは全員の山札に混ざります。</p></div>'}
    <h3 class="my-card-heading">保存済みのカード</h3>
-   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="edit-saved" data-id="${e(c.localId)}">✏ 編集</button><button class="small secondary" data-action="publish" data-id="${e(c.localId)}" ${state.classroom&&state.me!==state.host?"disabled title=\"先生の承認が必要\"":""}>${state.customCards.some(x=>x.owner===state.me&&x.sourceLocalId===c.localId)?'更新':'追加'}</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}" title="端末から削除">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
+   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="edit-saved" data-id="${e(c.localId)}">✏ 編集</button><button class="small secondary" data-action="export-card" data-id="${e(c.localId)}">🔒 提出</button><button class="small secondary" data-action="publish" data-id="${e(c.localId)}" ${state.classroom&&state.me!==state.host?"disabled title=\"先生の承認が必要\"":""}>${state.customCards.some(x=>x.owner===state.me&&x.sourceLocalId===c.localId)?'更新':'追加'}</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}" title="端末から削除">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
   ${deckTools()}</section></div><div class="bottom-bar"><button data-action="leave" class="subtle">← 部屋から退出</button>${state.classroom&&state.me===state.host?'<button class="small danger" data-action="end-class">🛑 授業を終了</button>':''}<span>基本カード ${state.baseCardCount}種 + 追加 ${state.customCards.length}種</span></div>`;}
 function battle(){const p=me(),active=amTurn(),def=amDefending(),cards=chosenCards();const inBattle=!!state.pending,attacker=state.players.find(x=>x.id===state.pending?.from),defender=state.players.find(x=>x.id===state.pending?.to);
  const mode=def?`⚠ ${e(attacker?.name||'相手')} から威力${state.pending.damage}の攻撃！ 防御を選ぼう`:active?'あなたの手番！ カードと相手を選んでください':inBattle?`${e(defender?.name||'相手')} が防御を選択中…`:`${e(state.players.find(x=>x.id===state.turn)?.name||'相手')} の手番です`;
@@ -169,7 +173,7 @@ function savedCardsInForge(){
   ${custom.length?custom.map(c=>`<div class="forge-saved-entry ${editingCardId===c.localId?'current':''}">
    <span class="forge-saved-emoji">${e(c.emoji||'🃏')}</span>
    <div><b>${e(c.name||'名前のないカード')}</b><small>${e(TYPE[c.type]?.[0]||'カード')} · ${e(c.cost||0)}${c.resource==='gold'?'G':'MP'} · ${c.script?.trim()?'🐍 コード付き':'🧩 フォーム'}</small></div>
-   <button data-action="edit-saved" data-id="${e(c.localId)}" class="secondary small" ${editingCardId===c.localId?'aria-current="true"':''}>✏ 編集</button>
+   <button data-action="edit-saved" data-id="${e(c.localId)}" class="secondary small" ${editingCardId===c.localId?'aria-current="true"':''}>✏ 編集</button><button data-action="export-card" data-id="${e(c.localId)}" class="secondary small">🔒 1枚提出</button>
   </div>`).join(''):'<p class="forge-saved-empty">まだ保存したカードはありません。</p>'}
  </div></details>`;
 }
@@ -197,10 +201,48 @@ function editorCard(){return `<div class="forge-preview-card ${e(draft.type)}"><
 const FX={attack:[['normal','通常'],['drain','HP吸収'],['poison','毒'],['burn','炎上'],['pierce','防御貫通'],['wild','ギャンブル'],['freeze','凍結'],['chain','連鎖攻撃'],['double_hit','追撃'],['siphon','MP強奪'],['guard_hunt','防御札の枚数×威力']],defense:[['normal','通常'],['reflect','等倍反射'],['reflect_full','全反射'],['reflect_double','2倍反射'],['redirect','ランダム転送'],['scatter','攻撃分散'],['nullify','完全無効'],['absorb','魔力吸収'],['counter','反撃'],['mana','MP回復']],magic:[['blast','攻撃魔法'],['drain','HP吸収魔法'],['heal','回復'],['poison','毒'],['freeze','凍結'],['curse','呪い'],['mana','MP補助'],['swap_hp','HP交換'],['mass_poison','全体毒'],['steal_mp','MP強奪'],['scramble','手札一斉交換']],item:[['heal','回復'],['mana','MP回復'],['gold','お金増加'],['draw','カード補充'],['cleanse','浄化'],['lottery','くじ']],guardian:[['sprite','妖精'],['phoenix','不死鳥'],['turtle','玄武'],['storm','雷神'],['muse','月の女神']],omen:[['random','ランダム'],['blessing','祝福'],['meteor','流星雨'],['exchange','資源交換']]};
 const input=(id,label,value,kind='text',opts={})=>`<label class="forge-field"><span>${label}</span><input id="edit-${id}" type="${kind}" ${opts.max?'max="'+opts.max+'"':''} ${kind==='number'?'min="0"':''} value="${e(value)}" ${opts.maxLength?'maxlength="'+opts.maxLength+'"':''}/></label>`;
 function select(id,label,arr,val){return `<label class="forge-field"><span>${label}</span><select id="edit-${id}">${arr.map(([v,t])=>`<option value="${e(v)}" ${v===val?'selected':''}>${e(t)}</option>`).join('')}</select></label>`;}
+function openSourceBrowser(){
+ if(modal==='editor')getDraft();
+ sourceSelected=0;modal='source';renderModal();
+}
+function sourceEntries(){return CardSourceViewer.entries(custom,state?.customCards||[]);}
+async function updateSourceBrowser(){
+ const id=++sourceCounter, entry=sourceEntries()[sourceSelected];
+ const head=$('source-detail'),readout=$('source-code'),engine=$('source-engine'),frame=$('source-engine-frame');
+ if(!head||!readout||!engine||!frame||!entry)return;
+ const {card,origin}=entry,info=CardSourceViewer.summary(card,origin);
+ head.textContent=(card.emoji||'🃏')+' '+card.name+' · '+(TYPE[card.type]?.[0]||card.type)+' · '+info.label;
+ readout.textContent=info.code;engine.textContent='';frame.hidden=true;
+ if(origin==='base'){
+  frame.hidden=false;engine.textContent='エンジンの実コードを読み込み中…';
+  try{
+   const source=await CardSourceViewer.actualImplementation(card);
+   if(id!==sourceCounter)return;
+   engine.textContent=source?.code||'対応する実装が見つかりません';
+  }catch(err){
+   if(id===sourceCounter)engine.textContent='実コードを読み込めませんでした：'+err.message;
+  }
+ }
+}
 function renderModal(){window.ForgeMonaco?.dispose();const parent=$('modal-root');if(!modal){parent.innerHTML='';return;}
+ if(modal==='source'){
+  const entries=sourceEntries();
+  parent.innerHTML=`<div class="modal-backdrop"><section class="paper modal edu-source-modal" role="dialog" aria-modal="true" aria-label="カードコード図鑑">
+   <div class="modal-title"><h2>🔎 カードコード図鑑</h2><button class="icon-button" data-action="close" aria-label="閉じる">×</button></div>
+   <p>基本カードの実際のJavaScript処理と、自作カードのPython風コードを読み比べられます。閲覧専用です。</p>
+   <label class="forge-field"><span>カードを選択</span><select id="source-card-select">${entries.map((x,i)=>`<option value="${i}">${e(x.card.emoji||'🃏')} ${e(x.card.name)}（${x.origin==='base'?'基本':'自作'}）</option>`).join('')}</select></label>
+   <p id="source-detail" class="edu-source-detail"></p>
+   <h3>カードの設定・スクリプト</h3><pre id="source-code" class="edu-source-code"></pre>
+   <div id="source-engine-frame" hidden><h3>実際のゲームエンジンの処理（engine.js）</h3>
+    <p>複数の基本カードで共用している処理です。上の参考コードと同じものではありません。</p>
+    <pre id="source-engine" class="edu-source-code"></pre></div>
+   <div class="row-actions"><button class="secondary" data-action="source-copy">📋 上のコードをコピー</button><button class="secondary" data-action="close">閉じる</button></div>
+  </section></div>`;
+  updateSourceBrowser();return;
+ }
  if(modal==='rules'){parent.innerHTML=`<div class="modal-backdrop"><div class="paper modal rules-dialog"><div class="modal-title"><h2>📖 あそびかた</h2><button class="icon-button" data-action="close">×</button></div><p>2〜8人で遊べる、ランダムな手札を使った生き残りカードバトルです。</p><ol><li>手札は最初に9枚。使用した枚数だけランダムに補充されます。</li><li>攻撃カードは1〜3枚同時使用可能。相手は防御カードで防ぎます。</li><li>奇跡・道具・守護神・超常現象を使って逆転を狙いましょう。</li><li>毒や凍結などの状態異常はターン開始時に効果があります。</li><li>最後に生き残った人が勝利です。</li></ol><button class="primary" data-action="close">閉じる</button></div></div>`;return;}
  parent.innerHTML=`<div class="modal-backdrop"><section class="forge-shell" role="dialog" aria-label="カード工房" aria-modal="true">
- <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>${editingCardId||editingPublishedId?"✏ 保存済みカードを再編集":"自分だけの奇跡をつくろう"}</small></h2></div><div class="forge-header-actions"><button class="secondary small" data-api-guide="open" type="button">📚 関数図鑑</button><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div></div>
+ <div class="forge-header"><div><span class="section-overline">THE FORGE / CARD LABORATORY</span><h2>✦ カード工房 <small>${editingCardId||editingPublishedId?"✏ 保存済みカードを再編集":"自分だけの奇跡をつくろう"}</small></h2></div><div class="forge-header-actions"><button class="secondary small" data-action="source" type="button">🔎 既存カードのコード</button><button class="secondary small" data-api-guide="open" type="button">📚 関数図鑑</button><button data-action="close" class="icon-button" aria-label="閉じる">×</button></div></div>
  ${savedCardsInForge()}
  <div class="forge-modes forge-tabs" role="tablist" aria-label="カードの作成方法"><button role="tab" aria-selected="${editorMode==='form'}" class="${editorMode==='form'?'active':''}" data-action="mode-form">🧩 入力で作成</button><button role="tab" aria-selected="${editorMode==='code'}" class="${editorMode==='code'?'active':''}" data-action="mode-code">🐍 コードで作成</button></div><p class="forge-mode-hint" id="forge-mode-hint">${editorMode==='form'?'フォームで設定した値を保存します。過去のコードが優先されることはありません。':'カードの名前・威力・コスト・効果はコード内の card.* で指定できます。'}</p><div class="forge-layout ${editorMode==='code'?'forge-code-mode':'forge-form-mode'}"><div class="forge-left" id="forge-form-panel" role="tabpanel"><div class="forge-art"><div id="forge-preview">${editorCard()}</div></div><div class="form-block"><h3>カードの基本設定</h3><div class="two-col">${input('name','カード名',draft.name,'text',{maxLength:64})}${input('emoji','アイコン（絵文字）',draft.emoji,'text',{maxLength:16})}</div>
  <div class="two-col">${select('type','カードの種類',Object.entries(TYPE).map(([k,v])=>[k,v[0]]),draft.type)}${select('effect','基本効果',FX[draft.type],draft.effect)}</div>
@@ -353,8 +395,31 @@ function saveCard(){
  modal='';renderModal();render();
  toast('「'+savedCard.name+'」を'+(wasEditing?'上書き保存':'保存')+'しました！'+(sharedUpdated?' ロビーの公開カードへ更新を送信しました。':' ロビーから追加・更新できます。'));
 }
+function askSubmissionPassword(confirmTwice=false){
+ const pass=window.prompt('学校の提出パスワードを入力（12文字以上）。保存・送信されません。');
+ if(pass===null)throw Error('操作をキャンセルしました');
+ if(confirmTwice){
+  const again=window.prompt('確認のため、同じ提出パスワードをもう一度入力してください');
+  if(pass!==again)throw Error('確認用パスワードが一致しません');
+ }
+ return pass;
+}
+async function exportSingleCard(id){
+ const card=custom.find(x=>x.localId===id);
+ if(!card)throw Error('提出するカードが見つかりません');
+ const pass=askSubmissionPassword(true);
+ await EduCardCrypto.exportCard(card,pass);
+ toast('暗号化したカード1枚を出力しました。学校のDriveへ提出してください');
+}
+async function exportEncryptedDeck(){
+ const pass=askSubmissionPassword(true);
+ await EduDecks.download(custom,pass);
+ toast('暗号化したクラスデッキZIPを出力しました');
+}
 async function importDeckFiles(files) {
- const imported=await EduDecks.readFiles(files);
+ const imported=await EduDecks.readFiles(files,{
+   requestPassword:()=>askSubmissionPassword(false)
+ });
  if(custom.length+imported.length>150)throw Error('ローカル保存は150枚までにしてください');
  custom=custom.concat(imported);save('cr3-cards',custom);render();
  toast(imported.length+'枚のカードを読み込みました。公開前に内容を確認してください。');
@@ -387,7 +452,7 @@ document.addEventListener('input',ev=>{
  }
  if(ev.target?.id?.startsWith('edit-'))updatePreview();
 });
-document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
+document.addEventListener('change',ev=>{if(modal==='source'&&ev.target?.id==='source-card-select'){sourceSelected=Number(ev.target.value)||0;updateSourceBrowser();return;}if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
 document.addEventListener('change',async ev=>{
  if(ev.target?.id!=='deck-file-input')return;
  try{await importDeckFiles(ev.target.files);}catch(err){toast('読み込み失敗：'+err.message,true);}
@@ -404,7 +469,9 @@ document.addEventListener('drop',async ev=>{
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
  switch(a){case 'create':case 'join':case 'solo':case 'classroom':joinGame(a);break;
- case 'import-deck':$('deck-file-input')?.click();break;case 'export-deck':EduDecks.download(custom);toast('ZIPをダウンロードしました');break;case 'publish-all':publishAllCards();break;case 'invite':copyInvite();break;case 'leave':leave();break;
+ case 'import-deck':$('deck-file-input')?.click();break;case 'export-deck':exportEncryptedDeck().catch(err=>toast(err.message,true));break;case 'export-card':exportSingleCard(id).catch(err=>toast(err.message,true));break;case 'publish-all':publishAllCards();break;case 'invite':copyInvite();break;case 'leave':leave();break;
+ case 'source':openSourceBrowser();break;
+ case 'source-copy':{const value=$('source-code')?.textContent||'';navigator.clipboard?.writeText(value).then(()=>toast('コードをコピーしました')).catch(()=>toast('コピーできませんでした',true));break;}
  case 'editor':openEditor();break;case 'new-card':if(modal==='editor')getDraft();openEditor();break;case 'edit-saved':if(modal==='editor')getDraft();openEditor(id);break;case 'edit-published':if(modal==='editor')getDraft();openEditor(null,id);break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
  case 'end-class':if(window.confirm('クラスの対戦を全員終了します。元には戻せません。続けますか？'))act('endClass');break;
  case 'start':act('start');break;case 'reset':act('reset');break;case 'add-bot':act('bot',{action:'add'});break;case 'remove-bot':act('bot',{action:'remove'});break;
