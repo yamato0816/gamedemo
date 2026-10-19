@@ -24,7 +24,10 @@ jobs:
           node --check engine.js
           node --check local-online.js
           node --check edu-decks.js
+          node --check edu-card-crypto.js
+          node --check card-source-viewer.js
           node tests/engine.test.js
+          node tests/edu-encryption.test.js
           node tests/edu-local.test.js
           node tests/card-forge-modes.test.js
           node tests/card-editor-ui.test.js
