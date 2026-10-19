@@ -1,1 +1,21 @@
-{"name":"chaos-relic-relay","main":"src/worker.js","compatibility_date":"2026-10-01","durable_objects":{"bindings":[{"name":"ROOMS","class_name":"RoomRelay"}]},"migrations":[{"tag":"v1","new_sqlite_classes":["RoomRelay"]}]}
+{
+  "name": "gamedemo",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "RoomRelay"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "RoomRelay"
+      ]
+    }
+  ]
+}
