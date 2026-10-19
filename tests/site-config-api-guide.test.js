@@ -10,6 +10,12 @@ const firebase={apiKey:'web-key',databaseURL:'https://example.firebasedatabase.a
 const configCtx={localStorage:fakeStorage,CHAOS_FIREBASE_CONFIG:firebase,CHAOS_RELAY_URL:''};
 vm.createContext(configCtx);
 vm.runInContext(read('transport-config.js'),configCtx);
+const publishedRelayCtx={window:{}};
+vm.createContext(publishedRelayCtx);
+vm.runInContext(read('relay-config.js'),publishedRelayCtx);
+const deployedUrl='wss://gamedemo.w-7jsf7s.workers.dev';
+assert.equal(publishedRelayCtx.window.CHAOS_RELAY_URL,deployedUrl,'site uses the deployed Cloudflare Worker');
+assert.ok(read('index.html').includes('relay-config.js?v=20261019-live-1'),'browser fetches fresh relay config');
 const cfg=configCtx.ChaosTransport;
 assert.equal(cfg.mode(),'firebase','Firebase remains usable until the Worker URL is provided');
 assert.equal(cfg.available('relay'),false);
