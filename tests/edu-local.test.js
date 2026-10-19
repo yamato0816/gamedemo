@@ -48,5 +48,9 @@ for (const file of ['pycards.js', 'engine.js', 'local-online.js', 'edu-decks.js'
   GameEngine.apply(r,a,{type:'bulkPublish',cards:[{...card,sourceLocalId:'student-001',power:9}]});
   assert.equal(r.cards.length,1);
   assert.equal(r.cards[0].power,9);
-  console.log('PASS: ZIP/JSON deck round-trip, solo CPUs, moderation and batch updates');
+  GameEngine.apply(r,a,{type:'endClass'});
+  assert.equal(r.classroomEnded,true);
+  assert.equal(GameEngine.view(r,b).classroomEnded,true);
+  assert.throws(()=>GameEngine.apply(r,a,{type:'start'}),/終了/);
+  console.log('PASS: ZIP/JSON deck round-trip, solo CPUs, moderation, batch updates and emergency end');
 })().catch(e=>{console.error(e);process.exitCode=1;});
