@@ -41,7 +41,7 @@ Cloudflare currently offers SQLite-backed Durable Objects on Workers Free (subje
 
 - No chat or messages between participants; keep it disabled in EDU mode.
 - Teacher approval of every exported card prior to publication, and avoid collecting real names in custom content.
-- A classroom host can click \`🛑 授業を終了\` even during animated cards. The stop is sent to all connected players and prevents restarting that room; staff still need an incident-response protocol and a private reporting route.
+- A classroom host can click `🛑 授業を終了` even during animated cards. The stop is sent to all connected players and prevents restarting that room; staff still need an incident-response protocol and a private reporting route.
 - Teachers should be able to limit publishing, and future versions must add session access controls, removals, student reporting workflows, per-classroom deck sharing, and abuse logging with minimal retention.
 - Obtain permission from the school for external websites, personal data handling and network tests, even for a free pilot.
 
