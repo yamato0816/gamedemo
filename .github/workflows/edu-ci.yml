@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app.js'
+      - 'forge-ide.css'
+      - 'forge-monaco.js'
       - 'engine.js'
       - 'index.html'
       - 'network.js'
@@ -28,6 +30,7 @@ jobs:
           node --check card-source-viewer.js
           node tests/engine.test.js
           node tests/edu-encryption.test.js
+          node tests/forge-ide-layout.test.js
           node tests/edu-local.test.js
           node tests/card-forge-modes.test.js
           node tests/card-editor-ui.test.js
