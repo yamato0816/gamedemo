@@ -30,7 +30,13 @@ let editorMode='form',editingCardId=null,editingPublishedId=null;
 function editorDraftKey(){return editingPublishedId?'cr3-editor-draft-published-'+editingPublishedId:editingCardId?'cr3-editor-draft-edit-'+editingCardId:'cr3-editor-draft';}
 let pending=false,showRules=false;let timer=null,lastViewHash='';
 function toast(message,bad=false){const t=$('toast');t.textContent=message;t.className='visible'+(bad?' error':'');clearTimeout(timer);timer=setTimeout(()=>t.className='',3300);}
-const net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
+let net=new Online({onState:s=>{const hash=JSON.stringify(s);state=s;if(hash===lastViewHash)return;lastViewHash=hash;chosen=new Set([...chosen].filter(id=>s.hand.some(c=>c.uid===id)));const enemies=s.players.filter(p=>p.hp>0&&p.id!==s.me);if(!enemies.some(p=>p.id===target))target=enemies[0]?.id||null;render();},onInfo:message=>{if($('connection-status'))$('connection-status').textContent=message;$('connection-dot')?.classList.toggle('on',net.ready);if(message.includes('あなたが新ホスト'))toast('👑 新しい部屋主になりました！ 対戦を引き継ぎます');},onError:message=>toast(message,true),onClosed:message=>{toast(message,true);$('connection-status').textContent='通信切断';$('connection-dot').classList.remove('on');}});
+function swapTransport(solo) {
+ const callbacks={onState:net.onState,onInfo:net.onInfo,onError:net.onError,onClosed:net.onClosed};
+ net.disconnect();
+ net=solo?new LocalOnline(callbacks):new Online(callbacks);
+}
+function isSolo(){return net instanceof LocalOnline;}
 function ready(){return state&&net.ready;}
 function busyPopup(){return state?.phase==='game'&&((state.popupBusyUntil||0)>Date.now()||!!window.ChaosPopups?.isBusy());}
 function me(){return state?.players.find(p=>p.id===state.me);}
@@ -50,16 +56,30 @@ function playerItem(p,i){const targeting=p.id===target,canTarget=p.id!==state.me
   <div class="statuses">${Object.entries(STAT).filter(([k])=>p[k]>0).map(([k,v])=>`<span title="${v[0]}">${v[1]}${p[k]}</span>`).join('')}${p.shield?'<span title="バリア">🛡'+p.shield+'</span>':''}${p.guardian?`<span>${GD[p.guardian.kind]||'守護神'}</span>`:''}</div></div>
   ${p.id===state.turn?'<span class="turn-pin">手番</span>':''}${targeting?'<span class="target-pin">標的</span>':''}
  </button>`;}
+function deckTools() {
+ const host=state&&state.me===state.host,canBatch=host&&state.phase==='lobby';
+ return `<section class="deck-tools" id="deck-drop" aria-label="カードデッキの読み込みと出力">
+  <h3>📦 デッキ共有 <small>ログイン不要・ファイルは端末内で解析</small></h3>
+  <p>ZIP / JSONを読み込み、学校のDriveやファイルサーバーで共有できます。氏名はカードやファイル名に含めないでください。</p>
+  <div class="row-actions">
+   <button type="button" class="secondary small" data-action="import-deck">📂 ZIP・JSONを読み込む</button>
+   <button type="button" class="secondary small" data-action="export-deck">💾 保存済みカードをZIP出力（${custom.length}枚）</button>
+   ${canBatch?`<button type="button" class="primary small" data-action="publish-all">📤 確認済みカードを一括公開</button>`:''}
+  </div>
+  <input id="deck-file-input" type="file" accept=".zip,.json,application/zip,application/json" multiple hidden>
+  <small>ここにZIPをドロップしても読み込めます。授業利用前に内容を確認し、先生が公開してください。</small>
+ </section>`;
+}
 function landing(){const invited=new URLSearchParams(location.search).get('room')||'';return `<div class="landing-shell"><section class="welcome">
   <div class="stamp">✦ FREE TO PLAY · PEER TO PEER ✦</div><h1>一枚で、<em>天地がひっくり返る。</em></h1><p>運も読み合いも、ひらめきも。友達とわいわい遊ぶ、ちいさな神話のカードバトル。<br>しかも、<b>好きな能力をコードで作れる。</b></p>
   <div class="intro-art"><span>☄️</span><span>⚔️</span><span>🛡️</span><span>🦅</span><span>🔮</span></div>
   <div class="welcome-box"><label class="field"><span>あなたの名前</span><input id="player-name" maxlength="14" placeholder="プレイヤー名を入力" value="${e(name)}"/></label>
-    <button class="primary big" data-action="create">部屋をつくる <span>→</span></button>
+    <button class="primary big" data-action="create">部屋をつくる <span>→</span></button><div class="row-actions"><button class="secondary" data-action="solo">🤖 ソロ・CPU対戦</button><button class="secondary" data-action="classroom">🏫 教師向け承認制ルーム</button></div>
     <div class="between-line"><span>または、友達の部屋へ</span></div>
     <div class="join-row"><input id="room-input" maxlength="7" placeholder="7文字の部屋コード" value="${e(invited.toUpperCase())}"/><button class="secondary" data-action="join">参加する</button></div>
-  </div><div class="feature-strip"><span>⌛ 5〜15分</span><span>♟ 2〜8人</span><span>⚡ オンライン対戦</span><span>✎ カード作成</span></div>
+  </div>${deckTools()}<div class="feature-strip"><span>⌛ 5〜15分</span><span>♟ 2〜8人</span><span>⚡ オンライン対戦</span><span>✎ カード作成</span></div>
   </section><aside class="landing-side"><div class="preview-card-layers"><div class="feature-card fade-back">🦅<small>不死鳥の守護</small></div><div class="feature-card foreground">⚔️<small>逆転の一撃</small></div></div><h3>その一手が、勝負を決める。</h3><p>攻撃を重ねて、相手の防御を読み、奇跡を引き当てよう。毒・凍結・守護神、そして突然の超常現象。</p><button class="textlink" data-action="editor">カード工房を見てみる ↗</button></aside></div>`;}
-function lobby(){const room=state;return `<div class="lobby-head"><div><span class="section-overline">待機室 · ONLINE LOBBY</span><h1>冒険の準備をしよう。</h1><p>部屋コードをコピーして、友達を招待してください。</p></div><div class="room-code"><span>ROOM CODE</span><strong>${e(state.room)}</strong><button class="small secondary" data-action="invite">招待リンクをコピー ↗</button></div></div>
+function lobby(){const room=state;return `<div class="lobby-head"><div><span class="section-overline">待機室 · ${isSolo()?"SOLO":"ONLINE"} LOBBY</span><h1>冒険の準備をしよう。</h1><p>${isSolo()?"通信なしでCPUと対戦できます。":state.classroom?"先生がカードを承認してから対戦します（最大8人）。":"部屋コードをコピーして、友達を招待してください。"}</p></div><div class="room-code"><span>ROOM CODE</span><strong>${e(state.room)}</strong>${isSolo()?"":'<button class="small secondary" data-action="invite">招待リンクをコピー ↗</button>'}</div></div>
   <div class="lobby-columns"><section class="paper"><h2><span>♟</span> 参加プレイヤー <small>${state.players.length}/8人</small></h2>
   <div class="lobby-players">${state.players.map((p,i)=>`<div class="lobby-member"><span class="round-avatar">${ICONS[i%ICONS.length]}</span><div><b>${e(p.name)}</b><small>${p.id===state.me?'あなた':p.bot?'CPU':p.id===state.host?'部屋主':'参加中'}</small></div><span>${p.id===state.host?'👑':p.bot?'🤖':'●'}</span></div>`).join('')}</div>
   ${state.me===state.host?`<div class="row-actions"><button class="subtle" data-action="add-bot">＋ CPUを追加</button><button class="subtle" data-action="remove-bot">− CPUを外す</button></div><button class="primary big" ${state.players.length<2?'disabled':''} data-action="start">対戦開始 ⚔️</button>`:'<p class="hint">👑 部屋主が対戦を開始するのを待っています。</p>'}
@@ -67,8 +87,8 @@ function lobby(){const room=state;return `<div class="lobby-head"><div><span cla
   <section class="paper"><div class="paper-title"><h2><span>✎</span> みんなの自作カード <small>${state.customCards.length}枚</small></h2><button class="secondary small" data-action="editor">＋ カードを作る</button></div>
    ${state.customCards.length?`<div class="shared-cards">${state.customCards.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>${e(c.author)} · ${e(TYPE[c.type][0])}</small></div>${c.owner===state.me?`<button data-action="edit-published" data-id="${e(c.id)}" class="small secondary">✏ 編集</button>`:''}${c.owner===state.me||state.host===state.me?`<button data-action="remove" data-id="${e(c.id)}" class="small danger" title="ロビーから削除">×</button>`:''}</div>`).join('')}</div>`:'<div class="empty"><strong>まだ自作カードはありません</strong><p>作ったカードは全員の山札に混ざります。</p></div>'}
    <h3 class="my-card-heading">保存済みのカード</h3>
-   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="edit-saved" data-id="${e(c.localId)}">✏ 編集</button><button class="small secondary" data-action="publish" data-id="${e(c.localId)}">${state.customCards.some(x=>x.owner===state.me&&x.sourceLocalId===c.localId)?'更新':'追加'}</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}" title="端末から削除">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
-  </section></div><div class="bottom-bar"><button data-action="leave" class="subtle">← 部屋から退出</button><span>基本カード ${state.baseCardCount}種 + 追加 ${state.customCards.length}種</span></div>`;}
+   <div class="shared-cards">${custom.length?custom.map(c=>`<div class="shared-card"><span>${e(c.emoji)}</span><div><b>${e(c.name)}</b><small>ローカル保存</small></div><button class="small secondary" data-action="edit-saved" data-id="${e(c.localId)}">✏ 編集</button><button class="small secondary" data-action="publish" data-id="${e(c.localId)}" ${state.classroom&&state.me!==state.host?"disabled title=\"先生の承認が必要\"":""}>${state.customCards.some(x=>x.owner===state.me&&x.sourceLocalId===c.localId)?'更新':'追加'}</button><button class="small danger" data-action="delete" data-id="${e(c.localId)}" title="端末から削除">×</button></div>`).join(''):'<p class="hint">自作カードはまだありません。</p>'}</div>
+  ${deckTools()}</section></div><div class="bottom-bar"><button data-action="leave" class="subtle">← 部屋から退出</button><span>基本カード ${state.baseCardCount}種 + 追加 ${state.customCards.length}種</span></div>`;}
 function battle(){const p=me(),active=amTurn(),def=amDefending(),cards=chosenCards();const inBattle=!!state.pending,attacker=state.players.find(x=>x.id===state.pending?.from),defender=state.players.find(x=>x.id===state.pending?.to);
  const mode=def?`⚠ ${e(attacker?.name||'相手')} から威力${state.pending.damage}の攻撃！ 防御を選ぼう`:active?'あなたの手番！ カードと相手を選んでください':inBattle?`${e(defender?.name||'相手')} が防御を選択中…`:`${e(state.players.find(x=>x.id===state.turn)?.name||'相手')} の手番です`;
  return `<div class="game-top"><div><span class="section-overline">ONLINE BATTLE · ROUND ${state.round}</span><h1>カオスレリック <small>対戦中</small></h1></div><div class="top-game-actions"><span class="round-pill">第${state.round}ラウンド</span><span class="countdown" id="clock">--秒</span><button class="subtle" data-action="leave">降参・退出</button></div></div>
@@ -96,10 +116,22 @@ setInterval(()=>{
 },400);
 function act(type,args={}){if(type!=='leave'&&busyPopup()){toast('🎬 演出中です。終わるまで操作をお待ちください');return;}try{net.act({type,...args});}catch(err){toast(err.message,true);}}
 async function joinGame(kind){name=($('player-name')?.value||name||'旅人').trim().slice(0,14);save('cr3-name',name);$('connection-status').textContent='接続中…';try{
- if(kind==='create'){const code=await net.create(name);history.replaceState(null,'',location.pathname+'?room='+code);toast('部屋ができました。招待リンクを共有できます！');}
- else {const code=($('room-input')?.value||new URLSearchParams(location.search).get('room')||'').trim();await net.join(code,name);history.replaceState(null,'',location.pathname+'?room='+code.toUpperCase());}
+ if(kind==='solo'){
+  swapTransport(true);await net.create(name);history.replaceState(null,'',location.pathname);toast('🤖 CPU3体と対戦できます。カードも一括公開できます！');
+ }else{
+  if(isSolo())swapTransport(false);
+  if(kind==='create'||kind==='classroom'){
+   const code=await net.create(name);
+   if(kind==='classroom')act('classroom',{enabled:true});
+   history.replaceState(null,'',location.pathname+'?room='+code);
+   toast(kind==='classroom'?'🏫 先生の承認制ルームを作成しました':'部屋ができました。招待リンクを共有できます！');
+  }else{
+   const code=($('room-input')?.value||new URLSearchParams(location.search).get('room')||'').trim();
+   await net.join(code,name);history.replaceState(null,'',location.pathname+'?room='+code.toUpperCase());
+  }
+ }
 }catch(err){toast(err.message||'接続できませんでした',true);$('connection-status').textContent='接続失敗';}}
-function leave(){net.disconnect();state=null;lastViewHash='';chosen.clear();target=null;history.replaceState(null,'',location.pathname);$('connection-status').textContent='準備完了';$('connection-dot').classList.remove('on');render();}
+function leave(){if(isSolo())swapTransport(false);else net.disconnect();state=null;lastViewHash='';chosen.clear();target=null;history.replaceState(null,'',location.pathname);$('connection-status').textContent='準備完了';$('connection-dot').classList.remove('on');render();}
 function selectCard(uid){const c=state.hand.find(x=>x.uid===uid);if(!c)return;if(chosen.has(uid))chosen.delete(uid);else{const old=chosenCards();if(old.length&&(old[0].type!==c.type||!['attack','defense'].includes(c.type)))chosen.clear();const max=['attack','defense'].includes(c.type)?state.hand.filter(x=>x.type===c.type).length:1;if(chosen.size>=max){toast('この種類のカードをこれ以上選べません');return;}chosen.add(uid);}render();}
 function play(){const cards=chosenCards();if(!cards.length)return;if(amDefending()){chosen.clear();act('defend',{cards:cards.map(c=>c.uid)});return;}
  if(!amTurn())return;const atk=cards.every(c=>c.type==='attack');chosen.clear();if(atk)act('attack',{cards:cards.map(c=>c.uid),target});
@@ -319,6 +351,20 @@ function saveCard(){
  modal='';renderModal();render();
  toast('「'+savedCard.name+'」を'+(wasEditing?'上書き保存':'保存')+'しました！'+(sharedUpdated?' ロビーの公開カードへ更新を送信しました。':' ロビーから追加・更新できます。'));
 }
+async function importDeckFiles(files) {
+ const imported=await EduDecks.readFiles(files);
+ if(custom.length+imported.length>150)throw Error('ローカル保存は150枚までにしてください');
+ custom=custom.concat(imported);save('cr3-cards',custom);render();
+ toast(imported.length+'枚のカードを読み込みました。公開前に内容を確認してください。');
+}
+function publishAllCards(){
+ if(!state||state.phase!=='lobby'||state.me!==state.host)throw Error('ロビーの部屋主のみ一括公開できます');
+ if(!custom.length)throw Error('公開できるカードがありません');
+ if(state.classroom&&!window.confirm('カード名・説明・コードを確認しましたか？ クラス全員のデッキに公開します。'))return;
+ const cards=custom.map(({localId,...card})=>({...card,sourceLocalId:localId}));
+ if(JSON.stringify(cards).length>220000)throw Error('一度に公開できるデータ量を超えています。カードを分けてください');
+ act('bulkPublish',{cards});
+}
 function publishCard(id){const card=custom.find(c=>c.localId===id);if(!card)return;const data={...card,sourceLocalId:card.localId};delete data.localId;act('publish',{card:data});}
 function updatePreview(){getDraft();if(!FX[draft.type].some(([v])=>v===draft.effect))draft.effect=FX[draft.type][0][0];const f=$('edit-effect');if(f){const current=f.value;f.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');f.value=FX[draft.type].some(([v])=>v===current)?current:draft.effect;}$('forge-preview').innerHTML=editorCard();}
 function editCodeInsert(str){
@@ -340,9 +386,23 @@ document.addEventListener('input',ev=>{
  if(ev.target?.id?.startsWith('edit-'))updatePreview();
 });
 document.addEventListener('change',ev=>{if(modal==='editor'&&ev.target?.id==='edit-type'){draft.type=ev.target.value;draft.effect=FX[draft.type][0][0];const effect=$('edit-effect');effect.innerHTML=FX[draft.type].map(([v,t])=>`<option value="${e(v)}">${e(t)}</option>`).join('');updatePreview();}});
+document.addEventListener('change',async ev=>{
+ if(ev.target?.id!=='deck-file-input')return;
+ try{await importDeckFiles(ev.target.files);}catch(err){toast('読み込み失敗：'+err.message,true);}
+ ev.target.value='';
+});
+document.addEventListener('dragover',ev=>{
+ if(ev.target.closest?.('#deck-drop')){ev.preventDefault();ev.dataTransfer.dropEffect='copy';}
+});
+document.addEventListener('drop',async ev=>{
+ if(!ev.target.closest?.('#deck-drop'))return;
+ ev.preventDefault();
+ try{await importDeckFiles(ev.dataTransfer.files);}catch(err){toast('読み込み失敗：'+err.message,true);}
+});
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id;
  try{
- switch(a){case 'create':case 'join':joinGame(a);break;case 'invite':copyInvite();break;case 'leave':leave();break;
+ switch(a){case 'create':case 'join':case 'solo':case 'classroom':joinGame(a);break;
+ case 'import-deck':$('deck-file-input')?.click();break;case 'export-deck':EduDecks.download(custom);toast('ZIPをダウンロードしました');break;case 'publish-all':publishAllCards();break;case 'invite':copyInvite();break;case 'leave':leave();break;
  case 'editor':openEditor();break;case 'new-card':if(modal==='editor')getDraft();openEditor();break;case 'edit-saved':if(modal==='editor')getDraft();openEditor(id);break;case 'edit-published':if(modal==='editor')getDraft();openEditor(null,id);break;case 'rules':modal='rules';renderModal();break;case 'close':if(modal==='editor')getDraft();modal='';renderModal();break;
  case 'start':act('start');break;case 'reset':act('reset');break;case 'add-bot':act('bot',{action:'add'});break;case 'remove-bot':act('bot',{action:'remove'});break;
  case 'card':selectCard(id);break;case 'target':target=id;render();break;case 'play':play();break;case 'defend':play();break;case 'take-hit':chosen.clear();act('defend',{cards:[]});break;
